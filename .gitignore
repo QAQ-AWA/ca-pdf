@@ -1,0 +1,47 @@
+# General
+.DS_Store
+*.log
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.pytest_cache/
+.mypy_cache/
+.poetry/
+venv/
+.venv/
+build/
+dist/
+.coverage
+htmlcov/
+
+typings/
+
+# Node
+node_modules/
+*.tsbuildinfo
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-store/
+
+# Frontend build outputs
+frontend/dist/
+frontend/.vite/
+
+# Backend artifacts
+backend/.pytest_cache/
+backend/.mypy_cache/
+backend/.ruff_cache/
+backend/.coverage
+
+# Editors
+.vscode/
+.idea/
