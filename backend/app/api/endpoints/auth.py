@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.dependencies.auth import get_current_user, require_roles
 from app.core.config import settings
@@ -33,12 +33,12 @@ _auth_rate_limiter = RateLimiter(
 @router.post("/login", response_model=TokenResponse, tags=["auth"])
 async def login(
     payload: LoginRequest,
-    session: Session = Depends(get_db),
+    session: AsyncSession = Depends(get_db),
     _: None = Depends(_auth_rate_limiter),
 ) -> TokenResponse:
     """Authenticate a user and return a pair of access and refresh tokens."""
 
-    user = user_crud.authenticate_user(session=session, email=payload.email, password=payload.password)
+    user = await user_crud.authenticate_user(session=session, email=payload.email, password=payload.password)
     if user is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
 
@@ -52,7 +52,7 @@ async def login(
 async def logout(
     payload: LogoutRequest,
     current_user: User = Depends(get_current_user),
-    session: Session = Depends(get_db),
+    session: AsyncSession = Depends(get_db),
     _: None = Depends(_auth_rate_limiter),
     credentials: HTTPAuthorizationCredentials | None = Depends(_http_bearer),
 ) -> dict[str, str]:
@@ -61,7 +61,7 @@ async def logout(
     token_payload = _decode_refresh_token_or_raise(payload.refresh_token)
     _validate_token_ownership(token_payload, current_user)
 
-    token_crud.revoke_token(
+    await token_crud.revoke_token(
         session=session,
         jti=token_payload.jti,
         token_type=token_payload.type,
@@ -75,7 +75,7 @@ async def logout(
             access_payload = None
         else:
             if access_payload.type == "access":
-                token_crud.revoke_token(
+                await token_crud.revoke_token(
                     session=session,
                     jti=access_payload.jti,
                     token_type=access_payload.type,
@@ -88,14 +88,14 @@ async def logout(
 @router.post("/refresh", response_model=TokenResponse, tags=["auth"])
 async def refresh_tokens(
     payload: RefreshRequest,
-    session: Session = Depends(get_db),
+    session: AsyncSession = Depends(get_db),
     _: None = Depends(_auth_rate_limiter),
 ) -> TokenResponse:
     """Rotate refresh tokens and issue a new token pair."""
 
     token_payload = _decode_refresh_token_or_raise(payload.refresh_token)
 
-    if token_crud.is_token_revoked(session=session, jti=token_payload.jti):
+    if await token_crud.is_token_revoked(session=session, jti=token_payload.jti):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token has been revoked")
 
     try:
@@ -103,12 +103,11 @@ async def refresh_tokens(
     except (TypeError, ValueError) as exc:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid subject claim") from exc
 
-    user = user_crud.get_user_by_id(session=session, user_id=user_id)
+    user = await user_crud.get_user_by_id(session=session, user_id=user_id)
     if user is None or not user.is_active:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User is not authorized")
 
-    # Revoke the used refresh token to enforce rotation
-    token_crud.revoke_token(
+    await token_crud.revoke_token(
         session=session,
         jti=token_payload.jti,
         token_type=token_payload.type,

@@ -1,49 +1,71 @@
-"""SQLAlchemy session and engine configuration."""
+"""SQLAlchemy async session and engine configuration."""
 
 from __future__ import annotations
 
-from collections.abc import Generator
+from collections.abc import AsyncIterator
 
-from sqlalchemy import create_engine
-from sqlalchemy.engine import Engine
-from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
 
 from app.core.config import settings
 
-
-def _build_engine() -> Engine:
-    connect_args: dict[str, object] = {}
-    if settings.database_url.startswith("sqlite"):
-        connect_args["check_same_thread"] = False
-    return create_engine(settings.database_url, connect_args=connect_args)
+engine: AsyncEngine | None = None
+SessionLocal: async_sessionmaker[AsyncSession] | None = None
 
 
-def _build_sessionmaker(bind_engine: Engine) -> sessionmaker[Session]:
-    return sessionmaker(
-        bind=bind_engine,
+def _build_engine() -> AsyncEngine:
+    return create_async_engine(
+        settings.async_database_url,
+        echo=settings.database_echo,
+        pool_pre_ping=True,
+    )
+
+
+def _build_sessionmaker(bind_engine: AsyncEngine) -> async_sessionmaker[AsyncSession]:
+    return async_sessionmaker(
+        bind_engine,
         autoflush=False,
-        autocommit=False,
         expire_on_commit=False,
     )
 
 
-engine: Engine = _build_engine()
-SessionLocal = _build_sessionmaker(engine)
+def _ensure_session_factory() -> None:
+    global engine, SessionLocal
+    if engine is None or SessionLocal is None:
+        bind_engine = _build_engine()
+        engine = bind_engine
+        SessionLocal = _build_sessionmaker(bind_engine)
 
 
-def refresh_session_factory() -> None:
-    """Recreate the engine and session factory using current settings."""
+def get_engine() -> AsyncEngine:
+    """Return the lazily constructed async engine."""
+
+    _ensure_session_factory()
+    assert engine is not None  # For type checkers
+    return engine
+
+
+def get_session_factory() -> async_sessionmaker[AsyncSession]:
+    """Return the lazily constructed async sessionmaker."""
+
+    _ensure_session_factory()
+    assert SessionLocal is not None  # For type checkers
+    return SessionLocal
+
+
+async def refresh_session_factory() -> None:
+    """Recreate the engine and session factory using the latest settings."""
 
     global engine, SessionLocal
-    engine = _build_engine()
-    SessionLocal = _build_sessionmaker(engine)
+    if engine is not None:
+        await engine.dispose()
+    bind_engine = _build_engine()
+    engine = bind_engine
+    SessionLocal = _build_sessionmaker(bind_engine)
 
 
-def get_db() -> Generator[Session, None, None]:
-    """Yield a database session for request-scoped usage."""
+async def get_db() -> AsyncIterator[AsyncSession]:
+    """Yield an async database session for request-scoped usage."""
 
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
+    session_factory = get_session_factory()
+    async with session_factory() as session:
+        yield session
