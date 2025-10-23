@@ -6,7 +6,7 @@ from collections.abc import Callable
 
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.security import InvalidTokenError, decode_token
 from app.crud.token import is_token_revoked
@@ -19,7 +19,7 @@ _http_bearer = HTTPBearer(auto_error=False)
 
 async def get_current_user(
     credentials: HTTPAuthorizationCredentials | None = Depends(_http_bearer),
-    session: Session = Depends(get_db),
+    session: AsyncSession = Depends(get_db),
 ) -> User:
     """Retrieve the current user based on the Authorization header."""
 
@@ -39,7 +39,7 @@ async def get_current_user(
     if payload.type != "access":
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token type")
 
-    if is_token_revoked(session=session, jti=payload.jti):
+    if await is_token_revoked(session=session, jti=payload.jti):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token has been revoked")
 
     try:
@@ -47,7 +47,7 @@ async def get_current_user(
     except (TypeError, ValueError) as exc:  # pragma: no cover - defensive branch
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid subject claim") from exc
 
-    user = get_user_by_id(session=session, user_id=user_id)
+    user = await get_user_by_id(session=session, user_id=user_id)
 
     if user is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")

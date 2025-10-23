@@ -9,7 +9,7 @@ from httpx import AsyncClient
 
 from app.core.config import settings
 from app.crud.user import create_user
-from app.db.session import SessionLocal
+from app.db.session import get_session_factory
 from app.models.user import UserRole
 
 LOGIN_URL = f"{settings.api_v1_prefix}/auth/login"
@@ -122,8 +122,9 @@ async def test_admin_route_requires_admin_role(client: AsyncClient) -> None:
     assert admin_response.status_code == 200
     assert admin_response.json()["detail"] == "admin-ok"
 
-    with SessionLocal() as session:
-        create_user(
+    session_factory = get_session_factory()
+    async with session_factory() as session:
+        await create_user(
             session=session,
             email="user@example.com",
             password="UserPassword123!",

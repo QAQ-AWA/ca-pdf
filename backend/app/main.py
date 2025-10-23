@@ -24,9 +24,9 @@ def create_application() -> FastAPI:
     application.include_router(router)
 
     @application.on_event("startup")
-    def _on_startup() -> None:
-        init_db()
-        bootstrap_admin()
+    async def _on_startup() -> None:
+        await init_db()
+        await bootstrap_admin()
 
     return application
 

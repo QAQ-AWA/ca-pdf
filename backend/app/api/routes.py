@@ -11,7 +11,7 @@ router.include_router(api_router)
 
 
 @router.get("/health", tags=["health"])
-def health_check() -> dict[str, str]:
+async def health_check() -> dict[str, str]:
     """Basic health check endpoint for uptime monitoring."""
 
     return {"status": "ok", "service": settings.app_name}

@@ -3,21 +3,22 @@
 from __future__ import annotations
 
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.user import TokenBlocklist
 
 
-def is_token_revoked(*, session: Session, jti: str) -> bool:
+async def is_token_revoked(*, session: AsyncSession, jti: str) -> bool:
     """Return True if the supplied token identifier has been revoked."""
 
     statement = select(TokenBlocklist).where(TokenBlocklist.jti == jti)
-    return session.scalar(statement) is not None
+    result = await session.execute(statement)
+    return result.scalar_one_or_none() is not None
 
 
-def revoke_token(
+async def revoke_token(
     *,
-    session: Session,
+    session: AsyncSession,
     jti: str,
     token_type: str,
     user_id: int | None,
@@ -25,12 +26,13 @@ def revoke_token(
     """Persist a token identifier in the blocklist."""
 
     statement = select(TokenBlocklist).where(TokenBlocklist.jti == jti)
-    existing = session.scalar(statement)
+    result = await session.execute(statement)
+    existing = result.scalar_one_or_none()
     if existing is not None:
         return existing
 
     token = TokenBlocklist(jti=jti, token_type=token_type, user_id=user_id)
     session.add(token)
-    session.commit()
-    session.refresh(token)
+    await session.commit()
+    await session.refresh(token)
     return token

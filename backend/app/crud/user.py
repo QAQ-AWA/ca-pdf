@@ -3,41 +3,51 @@
 from __future__ import annotations
 
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.security import get_password_hash, verify_password
+from app.models.role import RoleSlug
 from app.models.user import User, UserRole
 
 
-def get_user_by_email(*, session: Session, email: str) -> User | None:
+async def get_user_by_email(*, session: AsyncSession, email: str) -> User | None:
     """Retrieve a user object by its email."""
 
     statement = select(User).where(User.email == email)
-    return session.scalar(statement)
+    result = await session.execute(statement)
+    return result.scalar_one_or_none()
 
 
-def get_user_by_id(*, session: Session, user_id: int) -> User | None:
+async def get_user_by_id(*, session: AsyncSession, user_id: int) -> User | None:
     """Retrieve a user object by its identifier."""
 
     statement = select(User).where(User.id == user_id)
-    return session.scalar(statement)
+    result = await session.execute(statement)
+    return result.scalar_one_or_none()
 
 
-def create_user(*, session: Session, email: str, password: str, role: UserRole = UserRole.USER) -> User:
+async def create_user(
+    *,
+    session: AsyncSession,
+    email: str,
+    password: str,
+    role: UserRole = UserRole.USER,
+) -> User:
     """Create a new user with the supplied credentials."""
 
     hashed_password = get_password_hash(password)
-    user = User(email=email, hashed_password=hashed_password, role=role.value)
+    user = User(email=email, hashed_password=hashed_password)
+    user.role = role
     session.add(user)
-    session.commit()
-    session.refresh(user)
+    await session.commit()
+    await session.refresh(user)
     return user
 
 
-def authenticate_user(*, session: Session, email: str, password: str) -> User | None:
+async def authenticate_user(*, session: AsyncSession, email: str, password: str) -> User | None:
     """Return the user if the provided credentials are valid."""
 
-    user = get_user_by_email(session=session, email=email)
+    user = await get_user_by_email(session=session, email=email)
     if user is None:
         return None
     if not user.is_active:
@@ -47,27 +57,27 @@ def authenticate_user(*, session: Session, email: str, password: str) -> User | 
     return user
 
 
-def ensure_admin_user(*, session: Session, email: str, password: str, role: str) -> User:
+async def ensure_admin_user(*, session: AsyncSession, email: str, password: str, role: str) -> User:
     """Create or update the initial administrator account."""
 
     try:
-        normalized_role = UserRole(role.lower())
+        normalized_role = RoleSlug(role.lower())
     except ValueError:
-        normalized_role = UserRole.ADMIN
+        normalized_role = RoleSlug.ADMIN
 
-    user = get_user_by_email(session=session, email=email)
+    user = await get_user_by_email(session=session, email=email)
     hashed_password = get_password_hash(password)
 
     if user is None:
         user = User(
             email=email,
             hashed_password=hashed_password,
-            role=normalized_role.value,
             is_active=True,
         )
+        user.role = normalized_role
         session.add(user)
-        session.commit()
-        session.refresh(user)
+        await session.commit()
+        await session.refresh(user)
         return user
 
     needs_commit = False
@@ -77,7 +87,7 @@ def ensure_admin_user(*, session: Session, email: str, password: str, role: str)
         needs_commit = True
 
     if user.role != normalized_role.value:
-        user.role = normalized_role.value
+        user.role = normalized_role
         needs_commit = True
 
     if not user.is_active:
@@ -86,7 +96,7 @@ def ensure_admin_user(*, session: Session, email: str, password: str, role: str)
 
     if needs_commit:
         session.add(user)
-        session.commit()
-        session.refresh(user)
+        await session.commit()
+        await session.refresh(user)
 
     return user
