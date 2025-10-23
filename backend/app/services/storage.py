@@ -66,6 +66,23 @@ class EncryptedStorageService:
             data=payload,
         )
 
+    async def store_certificate_pem(
+        self,
+        session: AsyncSession,
+        *,
+        pem: str,
+        owner_id: int | None,
+        filename: str | None = None,
+    ) -> tuple[FileMetadata, EncryptedSecret]:
+        payload = pem.strip().encode("utf-8")
+        return await self._store_binary(
+            session=session,
+            owner_id=owner_id,
+            filename=filename or f"certificate-{uuid4().hex}.pem",
+            content_type="application/x-pem-file",
+            data=payload,
+        )
+
     async def store_seal_image(
         self,
         session: AsyncSession,
@@ -81,6 +98,24 @@ class EncryptedStorageService:
             session=session,
             owner_id=owner_id,
             filename=filename or f"seal-{uuid4().hex}",
+            content_type=normalized_type,
+            data=data,
+        )
+
+    async def store_encrypted_asset(
+        self,
+        session: AsyncSession,
+        *,
+        data: bytes,
+        content_type: str,
+        owner_id: int | None,
+        filename: str | None = None,
+    ) -> tuple[FileMetadata, EncryptedSecret]:
+        normalized_type = content_type.lower().strip()
+        return await self._store_binary(
+            session=session,
+            owner_id=owner_id,
+            filename=filename or f"asset-{uuid4().hex}",
             content_type=normalized_type,
             data=data,
         )
@@ -104,6 +139,22 @@ class EncryptedStorageService:
             return payload.decode("utf-8")
         except UnicodeDecodeError as exc:
             raise StorageCorruptionError("Stored private key payload is not valid UTF-8") from exc
+
+    async def load_file_bytes(self, session: AsyncSession, file_id: UUID) -> bytes:
+        file_metadata = await session.get(FileMetadata, file_id)
+        if file_metadata is None:
+            raise StorageNotFoundError(f"File metadata {file_id} was not found")
+        secret = file_metadata.encrypted_payload
+        if secret is None:
+            raise StorageCorruptionError("Stored file is missing encrypted payload")
+        return await self.retrieve_secret(session, secret.id)
+
+    async def load_certificate_pem(self, session: AsyncSession, file_id: UUID) -> str:
+        payload = await self.load_file_bytes(session, file_id)
+        try:
+            return payload.decode("utf-8")
+        except UnicodeDecodeError as exc:
+            raise StorageCorruptionError("Stored certificate payload is not valid UTF-8") from exc
 
     async def load_seal_image(self, session: AsyncSession, secret_id: UUID) -> bytes:
         return await self.retrieve_secret(session, secret_id)
