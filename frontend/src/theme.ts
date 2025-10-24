@@ -16,14 +16,17 @@ export const theme = {
     md: "1rem",
     lg: "1.5rem",
     xl: "2rem",
+    xxl: "3rem",
   },
   font: {
     family:
       '"Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
     size: {
+      xs: "0.75rem",
       sm: "0.875rem",
       base: "1rem",
       lg: "1.125rem",
+      xl: "1.5rem",
     },
     weight: {
       regular: 400,
