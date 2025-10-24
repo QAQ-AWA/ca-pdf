@@ -76,6 +76,16 @@ class Settings(BaseSettings):
         alias="SEAL_IMAGE_ALLOWED_CONTENT_TYPES",
     )
 
+    pdf_max_bytes: int = Field(default=50 * 1024 * 1024, alias="PDF_MAX_BYTES")
+    pdf_allowed_content_types: list[str] = Field(
+        default_factory=lambda: ["application/pdf"],
+        alias="PDF_ALLOWED_CONTENT_TYPES",
+    )
+    pdf_batch_max_count: int = Field(default=10, alias="PDF_BATCH_MAX_COUNT")
+    tsa_url: str | None = Field(default=None, alias="TSA_URL")
+    tsa_username: str | None = Field(default=None, alias="TSA_USERNAME")
+    tsa_password: SecretStr | None = Field(default=None, alias="TSA_PASSWORD")
+
     _master_key_bytes: bytes = PrivateAttr(default=b"")
     _raw_master_key: str = PrivateAttr(default="")
 
@@ -103,12 +113,20 @@ class Settings(BaseSettings):
     def _normalize_database_url(cls, value: str) -> str:
         return cls._transform_database_driver(value, ensure_async=True)
 
-    @field_validator("private_key_max_bytes", "seal_image_max_bytes")
+    @field_validator("private_key_max_bytes", "seal_image_max_bytes", "pdf_max_bytes", "pdf_batch_max_count")
     @classmethod
     def _validate_positive_int(cls, value: int) -> int:
         if value <= 0:
             raise ValueError("Sizes must be positive integers")
         return value
+
+    @field_validator("pdf_allowed_content_types", mode="before")
+    @classmethod
+    def _assemble_pdf_content_types(cls, value: Any) -> list[str]:
+        parsed = cls._normalize_sequence(value)
+        if not parsed:
+            raise ValueError("At least one PDF content type must be configured")
+        return parsed
 
     @model_validator(mode="after")
     def _resolve_master_key(self) -> Settings:
