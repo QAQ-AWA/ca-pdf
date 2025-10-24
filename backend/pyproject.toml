@@ -20,6 +20,10 @@ passlib = { version = "^1.7.4", extras = ["bcrypt"] }
 python-jose = { version = "^3.3.0", extras = ["cryptography"] }
 psycopg = { version = "^3.1.19", extras = ["binary"] }
 email-validator = "^2.1.1"
+pyhanko = { version = "^0.25.0", extras = ["image-support"] }
+pyhanko-certvalidator = "^0.26.0"
+requests = "^2.31.0"
+python-multipart = "^0.0.9"
 
 [tool.poetry.group.dev.dependencies]
 black = "^24.4.0"
@@ -28,6 +32,7 @@ mypy = "^1.10.0"
 pytest = "^8.2.0"
 pytest-asyncio = "^0.23.0"
 httpx = "^0.27.0"
+pypdf = "^5.1.0"
 
 [build-system]
 requires = ["poetry-core>=1.5.0"]
