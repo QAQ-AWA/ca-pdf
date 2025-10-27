@@ -1412,6 +1412,21 @@ dev = ["pre-commit", "tox"]
 testing = ["coverage", "pytest", "pytest-benchmark"]
 
 [[package]]
+name = "prometheus-client"
+version = "0.23.1"
+description = "Python client for the Prometheus monitoring system."
+optional = false
+python-versions = ">=3.9"
+groups = ["main"]
+files = [
+    {file = "prometheus_client-0.23.1-py3-none-any.whl", hash = "sha256:dd1913e6e76b59cfe44e7a4b83e01afc9873c1bdfd2ed8739f1e76aeca115f99"},
+    {file = "prometheus_client-0.23.1.tar.gz", hash = "sha256:6ae8f9081eaaaf153a2e959d2e6c4f4fb57b12ef76c8c7980202f1e57b48b2ce"},
+]
+
+[package.extras]
+twisted = ["twisted"]
+
+[[package]]
 name = "psycopg"
 version = "3.2.11"
 description = "PostgreSQL database adapter for Python"
@@ -2216,6 +2231,22 @@ anyio = ">=3.4.0,<5"
 full = ["httpx (>=0.22.0)", "itsdangerous", "jinja2", "python-multipart (>=0.0.7)", "pyyaml"]
 
 [[package]]
+name = "starlette-exporter"
+version = "0.21.0"
+description = "Prometheus metrics exporter for Starlette applications."
+optional = false
+python-versions = ">=3.8"
+groups = ["main"]
+files = [
+    {file = "starlette_exporter-0.21.0-py3-none-any.whl", hash = "sha256:f6c66fe241c7cc3634ba9d35231684bffb620ea35671e71cd788c26a50a7caaa"},
+    {file = "starlette_exporter-0.21.0.tar.gz", hash = "sha256:ca513b173003439303e931f467054c9fe75e7c98439f2ae17e94c9c3bcf18dfd"},
+]
+
+[package.dependencies]
+prometheus-client = ">=0.12"
+starlette = ">=0.35"
+
+[[package]]
 name = "typing-extensions"
 version = "4.15.0"
 description = "Backported and Experimental Type Hints for Python 3.9+"
@@ -2598,4 +2629,4 @@ files = [
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.11"
-content-hash = "365e163806a86420fe65bc8b63d69785cc0dbce27123a932dcb078105604229f"
+content-hash = "6ede33e6a8dce4f0b45acb1c30b13296c1088b09c8638565c6ce4e7b0f50ad58"

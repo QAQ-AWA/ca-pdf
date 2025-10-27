@@ -10,6 +10,7 @@ from httpx import AsyncClient
 from pypdf import PdfReader, PdfWriter
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import settings
 from app.crud import certificate as certificate_crud
 from app.crud import seal as seal_crud
 from app.db.session import get_db
@@ -528,6 +529,31 @@ class TestAPIEndpoints:
         )
 
         assert response.status_code == 400
+
+    async def test_sign_pdf_endpoint_rejects_oversized_payload(
+        self,
+        client: AsyncClient,
+        user_certificate: tuple[str, int],
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """Test that oversized PDF uploads are rejected before processing."""
+        from app.core.security import create_token
+
+        cert_id, _ = user_certificate
+        token = create_token(subject=str(1), token_type="access")
+
+        monkeypatch.setattr(settings, "pdf_max_bytes", 128)
+        oversized_pdf = b"%PDF-1.7\n" + (b"x" * 256)
+
+        response = await client.post(
+            "/api/v1/pdf/sign",
+            headers={"Authorization": f"Bearer {token}"},
+            files={"pdf_file": ("big.pdf", oversized_pdf, "application/pdf")},
+            data={"certificate_id": cert_id},
+        )
+
+        assert response.status_code == 400
+        assert "exceeds" in response.json()["detail"].lower()
 
     async def test_batch_sign_endpoint_unauthenticated(self, client: AsyncClient) -> None:
         """Test that unauthenticated batch requests are rejected."""
