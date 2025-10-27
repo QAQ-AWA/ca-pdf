@@ -259,7 +259,9 @@ class EncryptedStorageService:
         except UnicodeDecodeError as exc:
             raise StorageValidationError("Private key must be valid UTF-8 text") from exc
         normalized = text.strip()
-        if not (normalized.startswith("-----BEGIN") and normalized.endswith("END PRIVATE KEY-----")):
+        if not (
+            normalized.startswith("-----BEGIN") and normalized.endswith("END PRIVATE KEY-----")
+        ):
             raise StorageValidationError("Private key must be PEM encoded")
 
     def _validate_seal_image(self, payload: bytes, content_type: str) -> None:
@@ -267,7 +269,9 @@ class EncryptedStorageService:
             raise StorageValidationError("Seal image exceeds configured size limit")
         if content_type not in self._allowed_image_content_types:
             allowed = ", ".join(sorted(self._allowed_image_content_types)) or "none"
-            raise StorageValidationError(f"Seal image content type '{content_type}' is not allowed (allowed: {allowed})")
+            raise StorageValidationError(
+                f"Seal image content type '{content_type}' is not allowed (allowed: {allowed})"
+            )
         if content_type == "image/png" and not payload.startswith(b"\x89PNG\r\n\x1a\n"):
             raise StorageValidationError("PNG signature mismatch")
         if content_type == "image/svg+xml":

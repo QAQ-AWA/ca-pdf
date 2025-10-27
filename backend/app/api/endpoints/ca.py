@@ -18,9 +18,6 @@ from app.db.session import get_db
 from app.models.certificate import Certificate, CertificateStatus
 from app.models.user import User, UserRole
 from app.schemas.ca import (
-    CRLGenerateResponse,
-    CRLListResponse,
-    CRLMetadata,
     CertificateImportRequest,
     CertificateImportResponse,
     CertificateIssueRequest,
@@ -28,6 +25,9 @@ from app.schemas.ca import (
     CertificateListResponse,
     CertificateRevokeResponse,
     CertificateSummary,
+    CRLGenerateResponse,
+    CRLListResponse,
+    CRLMetadata,
     RootCACreateRequest,
     RootCAResponse,
     RootCertificateExportResponse,
@@ -85,7 +85,9 @@ async def generate_root_ca(
 
 
 @router.get("/root/certificate", response_model=RootCertificateExportResponse)
-async def export_root_certificate(session: AsyncSession = Depends(get_db)) -> RootCertificateExportResponse:
+async def export_root_certificate(
+    session: AsyncSession = Depends(get_db),
+) -> RootCertificateExportResponse:
     """Return the PEM encoded root certificate."""
 
     try:
@@ -147,7 +149,9 @@ async def import_certificate(
     try:
         bundle_bytes = base64.b64decode(payload.p12_bundle, validate=True)
     except binascii.Error as exc:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid PKCS#12 bundle encoding") from exc
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid PKCS#12 bundle encoding"
+        ) from exc
 
     try:
         result = await ca_service.import_certificate_from_p12(
@@ -267,7 +271,9 @@ async def list_crls(session: AsyncSession = Depends(get_db)) -> CRLListResponse:
 
 
 @router.get("/crl/{artifact_id}", response_class=PlainTextResponse)
-async def download_crl(artifact_id: UUID, session: AsyncSession = Depends(get_db)) -> PlainTextResponse:
+async def download_crl(
+    artifact_id: UUID, session: AsyncSession = Depends(get_db)
+) -> PlainTextResponse:
     """Download the specified certificate revocation list."""
 
     try:
@@ -285,7 +291,9 @@ def _ensure_utc(dt: datetime) -> datetime:
 
 
 async def _load_certificate_or_404(*, session: AsyncSession, certificate_id: UUID) -> Certificate:
-    certificate = await certificate_crud.get_certificate_by_id(session=session, certificate_id=certificate_id)
+    certificate = await certificate_crud.get_certificate_by_id(
+        session=session, certificate_id=certificate_id
+    )
     if certificate is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Certificate not found")
     return certificate
