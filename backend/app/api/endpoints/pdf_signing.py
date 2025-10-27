@@ -2,22 +2,26 @@
 
 from __future__ import annotations
 
+from typing import Any
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.responses import Response
 
 from app.api.dependencies.auth import get_current_user
 from app.core.config import settings
+from app.crud import audit_log as audit_log_crud
 from app.db.session import get_db
 from app.models.user import User
 from app.schemas.pdf_signing import (
     PDFBatchSignResponse,
     PDFBatchSignResultItem,
     PDFSignResponse,
+    PDFVerificationResponse,
     SignatureCoordinates,
     SignatureMetadata,
+    SignatureVerificationResult,
     SignatureVisibility,
 )
 from app.services.pdf_signing import (
@@ -31,6 +35,12 @@ from app.services.pdf_signing import (
     SignatureMetadata as ServiceMetadata,
     SignatureVisibility as ServiceVisibility,
     SigningResult,
+)
+from app.services.pdf_verification import (
+    PDFVerificationError,
+    PDFVerificationInputError,
+    PDFVerificationRootCAError,
+    PDFVerificationService,
 )
 
 router = APIRouter(prefix="/pdf", tags=["pdf-signing"])
@@ -65,8 +75,43 @@ def _convert_visibility(visibility: SignatureVisibility) -> ServiceVisibility:
     return ServiceVisibility(visibility.value)
 
 
+def _extract_client_ip(request: Request) -> str | None:
+    """Determine the originating IP address from the incoming request."""
+
+    forwarded = request.headers.get("x-forwarded-for")
+    if forwarded:
+        return forwarded.split(",")[0].strip() or None
+    if request.client is not None:
+        return request.client.host
+    return None
+
+
+async def _record_audit_event(
+    *,
+    session: AsyncSession,
+    request: Request,
+    actor_id: int,
+    event_type: str,
+    resource: str,
+    metadata: dict[str, Any] | None = None,
+) -> None:
+    """Persist an audit event capturing request metadata."""
+
+    await audit_log_crud.create_audit_log(
+        session=session,
+        actor_id=actor_id,
+        event_type=event_type,
+        resource=resource,
+        metadata=metadata,
+        ip_address=_extract_client_ip(request),
+        user_agent=request.headers.get("user-agent"),
+        commit=True,
+    )
+
+
 @router.post("/sign", response_model=PDFSignResponse)
 async def sign_pdf(
+    request: Request,
     pdf_file: UploadFile = File(..., description="PDF file to sign"),
     certificate_id: str = Form(..., description="Certificate UUID"),
     seal_id: str | None = Form(default=None, description="Seal UUID (optional)"),
@@ -175,6 +220,24 @@ async def sign_pdf(
             detail=str(exc),
         ) from exc
 
+    await _record_audit_event(
+        session=session,
+        request=request,
+        actor_id=current_user.id,
+        event_type="pdf.signature.applied",
+        resource="pdf",
+        metadata={
+            "document_id": result.document_id,
+            "certificate_id": str(result.certificate_id),
+            "seal_id": str(result.seal_id) if result.seal_id else None,
+            "visibility": result.visibility.value,
+            "tsa_used": result.tsa_used,
+            "ltv_embedded": result.ltv_embedded,
+            "signed_at": result.signed_at.isoformat(),
+            "file_size": result.file_size,
+        },
+    )
+
     return Response(
         content=result.signed_pdf,
         media_type="application/pdf",
@@ -191,6 +254,7 @@ async def sign_pdf(
 
 @router.post("/sign/batch", response_model=PDFBatchSignResponse)
 async def batch_sign_pdfs(
+    request: Request,
     pdf_files: list[UploadFile] = File(..., description="PDF files to sign"),
     certificate_id: str = Form(..., description="Certificate UUID"),
     seal_id: str | None = Form(default=None, description="Seal UUID (optional)"),
@@ -333,7 +397,7 @@ async def batch_sign_pdfs(
             )
             failed += 1
 
-    return PDFBatchSignResponse(
+    response_payload = PDFBatchSignResponse(
         total=len(pdfs),
         successful=successful,
         failed=failed,
@@ -344,3 +408,106 @@ async def batch_sign_pdfs(
         tsa_used=use_tsa,
         ltv_embedded=embed_ltv,
     )
+
+    await _record_audit_event(
+        session=session,
+        request=request,
+        actor_id=current_user.id,
+        event_type="pdf.signature.batch_applied",
+        resource="pdf",
+        metadata={
+            "total": len(pdfs),
+            "successful": successful,
+            "failed": failed,
+            "certificate_id": str(cert_uuid),
+            "seal_id": str(seal_uuid) if seal_uuid else None,
+            "visibility": sig_visibility.value,
+            "tsa_used": use_tsa,
+            "ltv_embedded": embed_ltv,
+            "document_ids": [item.document_id for item in result_items if item.document_id],
+        },
+    )
+
+    return response_payload
+
+
+@router.post("/verify", response_model=PDFVerificationResponse)
+async def verify_pdf(
+    request: Request,
+    pdf_file: UploadFile = File(..., description="Signed PDF to verify"),
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db),
+) -> PDFVerificationResponse:
+    """Validate signatures embedded in a PDF document."""
+
+    if pdf_file.content_type not in settings.pdf_allowed_content_types:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid content type: {pdf_file.content_type}",
+        )
+
+    try:
+        pdf_data = await pdf_file.read()
+    except Exception as exc:  # pragma: no cover - defensive branch
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Failed to read PDF file: {exc}",
+        ) from exc
+
+    verification_service = PDFVerificationService()
+
+    try:
+        report = await verification_service.verify_pdf(session=session, pdf_data=pdf_data)
+    except PDFVerificationInputError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    except PDFVerificationRootCAError as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
+    except PDFVerificationError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(exc),
+        ) from exc
+
+    response_payload = PDFVerificationResponse(
+        total_signatures=report.total_signatures,
+        valid_signatures=report.valid_signatures,
+        trusted_signatures=report.trusted_signatures,
+        all_signatures_valid=report.valid_signatures == report.total_signatures,
+        all_signatures_trusted=report.trusted_signatures == report.total_signatures,
+        signatures=[
+            SignatureVerificationResult(
+                field_name=detail.field_name,
+                valid=detail.valid,
+                trusted=detail.trusted,
+                docmdp_ok=detail.docmdp_ok,
+                modification_level=detail.modification_level,
+                signing_time=detail.signing_time,
+                signer_common_name=detail.signer_common_name,
+                signer_serial_number=detail.signer_serial_number,
+                summary=detail.summary,
+                timestamp_trusted=detail.timestamp_trusted,
+                timestamp_time=detail.timestamp_time,
+                timestamp_summary=detail.timestamp_summary,
+                error=detail.error,
+            )
+            for detail in report.signatures
+        ],
+    )
+
+    await _record_audit_event(
+        session=session,
+        request=request,
+        actor_id=current_user.id,
+        event_type="pdf.signature.verified",
+        resource="pdf",
+        metadata={
+            "total_signatures": report.total_signatures,
+            "valid_signatures": report.valid_signatures,
+            "trusted_signatures": report.trusted_signatures,
+            "all_signatures_valid": response_payload.all_signatures_valid,
+            "all_signatures_trusted": response_payload.all_signatures_trusted,
+            "signature_fields": [detail.field_name for detail in report.signatures],
+        },
+    )
+
+    return response_payload

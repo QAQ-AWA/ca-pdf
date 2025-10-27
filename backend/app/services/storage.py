@@ -10,6 +10,7 @@ from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import StorageEncryptionAlgorithm, settings
+from app.crud import audit_log as audit_log_crud
 from app.models.storage import EncryptedSecret, FileMetadata
 
 
@@ -91,16 +92,34 @@ class EncryptedStorageService:
         content_type: str,
         owner_id: int | None,
         filename: str | None = None,
+        audit_actor_id: int | None = None,
     ) -> tuple[FileMetadata, EncryptedSecret]:
         normalized_type = content_type.lower().strip()
         self._validate_seal_image(data, normalized_type)
-        return await self._store_binary(
+        file_metadata, secret = await self._store_binary(
             session=session,
             owner_id=owner_id,
             filename=filename or f"seal-{uuid4().hex}",
             content_type=normalized_type,
             data=data,
         )
+        if audit_actor_id is not None:
+            await audit_log_crud.create_audit_log(
+                session=session,
+                actor_id=audit_actor_id,
+                event_type="seal.uploaded",
+                resource="seal",
+                metadata={
+                    "file_id": str(file_metadata.id),
+                    "secret_id": str(secret.id),
+                    "content_type": normalized_type,
+                    "size_bytes": file_metadata.size_bytes,
+                    "owner_id": owner_id,
+                    "filename": file_metadata.filename,
+                },
+                commit=True,
+            )
+        return file_metadata, secret
 
     async def store_encrypted_asset(
         self,
