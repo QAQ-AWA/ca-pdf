@@ -32,48 +32,47 @@ jobs:
       ADMIN_ROLE: "admin"
       ENCRYPTED_STORAGE_ALGORITHM: "fernet"
       ENCRYPTED_STORAGE_MASTER_KEY: "L9oZbBY7bRHt9aCJloPAV9ooa-QKdfYU0uf5KIKGJ28="
-      POETRY_VIRTUALENVS_CREATE: "false"
+      POETRY_VIRTUALENVS_IN_PROJECT: "true"
       POETRY_NO_INTERACTION: "1"
+    defaults:
+      run:
+        working-directory: backend
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
 
-      - name: Set up Python 3.11
+      - name: Set up Python 3.12
         uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
-          cache: "poetry"
-          cache-dependency-path: backend/poetry.lock
+          python-version: "3.12"
 
       - name: Install Poetry
-        uses: snok/install-poetry@v1
+        run: |
+          curl -sSL https://install.python-poetry.org | python3 -
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
+          poetry --version
+
+      - name: Cache Poetry and virtual environment
+        uses: actions/cache@v3
         with:
-          version: "2.2.1"
-          virtualenvs-create: false
-          installer-parallel: true
+          path: |
+            ~/.cache/pypoetry
+            backend/.venv
+          key: ${{ runner.os }}-backend-${{ hashFiles('backend/poetry.lock') }}
 
       - name: Install backend dependencies
-        working-directory: backend
-        run: poetry install --no-interaction --no-root
+        run: poetry install --no-interaction --no-ansi
 
       - name: Run formatters (black & isort)
-        working-directory: backend
         run: |
           poetry run black --check app tests
           poetry run isort --check-only app tests
 
-      - name: Run Alembic migration check
-        working-directory: backend
-        run: poetry run alembic check
+      - name: Run mypy
+        run: poetry run mypy app
 
-      - name: Run backend test suite with coverage
-        working-directory: backend
-        run: poetry run pytest --cov=app --cov-report=xml --cov-report=term
+      - name: Run Alembic migrations
+        run: poetry run alembic upgrade head
 
-      - name: Upload backend coverage report
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: backend-coverage-${{ github.sha }}
-          path: backend/coverage.xml
-          if-no-files-found: warn
+      - name: Run backend test suite
+        run: poetry run pytest -q
