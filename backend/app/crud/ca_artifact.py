@@ -67,7 +67,9 @@ async def list_artifacts(
 ) -> list[CAArtifact]:
     """Return artifacts ordered from newest to oldest."""
 
-    statement: Select[CAArtifact] = select(CAArtifact).order_by(CAArtifact.created_at.desc())
+    statement: Select[CAArtifact] = select(CAArtifact).order_by(
+        CAArtifact.created_at.desc()
+    )
     if artifact_type is not None:
         statement = statement.where(CAArtifact.artifact_type == artifact_type.value)
     if limit is not None:
@@ -77,7 +79,9 @@ async def list_artifacts(
     return list(result.scalars().all())
 
 
-async def get_artifact_by_id(*, session: AsyncSession, artifact_id: UUID) -> CAArtifact | None:
+async def get_artifact_by_id(
+    *, session: AsyncSession, artifact_id: UUID
+) -> CAArtifact | None:
     """Retrieve a certificate authority artifact by its identifier."""
 
     statement: Select[CAArtifact] = (
