@@ -30,12 +30,12 @@ from app.services.pdf_signing import (
     PDFSigningService,
     PDFValidationError,
     SealNotFoundError,
-    SignatureCoordinates as ServiceCoordinates,
-    SignatureError,
-    SignatureMetadata as ServiceMetadata,
-    SignatureVisibility as ServiceVisibility,
-    SigningResult,
 )
+from app.services.pdf_signing import SignatureCoordinates as ServiceCoordinates
+from app.services.pdf_signing import SignatureError
+from app.services.pdf_signing import SignatureMetadata as ServiceMetadata
+from app.services.pdf_signing import SignatureVisibility as ServiceVisibility
+from app.services.pdf_signing import SigningResult
 from app.services.pdf_verification import (
     PDFVerificationError,
     PDFVerificationInputError,
@@ -115,8 +115,12 @@ async def sign_pdf(
     pdf_file: UploadFile = File(..., description="PDF file to sign"),
     certificate_id: str = Form(..., description="Certificate UUID"),
     seal_id: str | None = Form(default=None, description="Seal UUID (optional)"),
-    visibility: str = Form(default="invisible", description="Signature visibility (visible/invisible)"),
-    page: int | None = Form(default=None, description="Page number for visible signature (1-based)"),
+    visibility: str = Form(
+        default="invisible", description="Signature visibility (visible/invisible)"
+    ),
+    page: int | None = Form(
+        default=None, description="Page number for visible signature (1-based)"
+    ),
     x: float | None = Form(default=None, description="X coordinate for visible signature"),
     y: float | None = Form(default=None, description="Y coordinate for visible signature"),
     width: float | None = Form(default=None, description="Width of signature box"),

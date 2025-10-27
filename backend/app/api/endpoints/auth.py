@@ -18,7 +18,13 @@ from app.crud import token as token_crud
 from app.crud import user as user_crud
 from app.db.session import get_db
 from app.models.user import User, UserRole
-from app.schemas.auth import LoginRequest, LogoutRequest, RefreshRequest, TokenPayload, TokenResponse
+from app.schemas.auth import (
+    LoginRequest,
+    LogoutRequest,
+    RefreshRequest,
+    TokenPayload,
+    TokenResponse,
+)
 from app.schemas.user import UserRead
 from app.services.rate_limiter import RateLimiter
 
@@ -38,7 +44,9 @@ async def login(
 ) -> TokenResponse:
     """Authenticate a user and return a pair of access and refresh tokens."""
 
-    user = await user_crud.authenticate_user(session=session, email=payload.email, password=payload.password)
+    user = await user_crud.authenticate_user(
+        session=session, email=payload.email, password=payload.password
+    )
     if user is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
 
@@ -96,16 +104,22 @@ async def refresh_tokens(
     token_payload = _decode_refresh_token_or_raise(payload.refresh_token)
 
     if await token_crud.is_token_revoked(session=session, jti=token_payload.jti):
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token has been revoked")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Token has been revoked"
+        )
 
     try:
         user_id = int(token_payload.sub)
     except (TypeError, ValueError) as exc:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid subject claim") from exc
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid subject claim"
+        ) from exc
 
     user = await user_crud.get_user_by_id(session=session, user_id=user_id)
     if user is None or not user.is_active:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User is not authorized")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="User is not authorized"
+        )
 
     await token_crud.revoke_token(
         session=session,
@@ -138,7 +152,9 @@ def _decode_refresh_token_or_raise(refresh_token: str) -> TokenPayload:
     try:
         token_payload = decode_token(refresh_token)
     except InvalidTokenError as exc:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid refresh token") from exc
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid refresh token"
+        ) from exc
 
     if token_payload.type != "refresh":
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Wrong token type")
@@ -148,4 +164,6 @@ def _decode_refresh_token_or_raise(refresh_token: str) -> TokenPayload:
 
 def _validate_token_ownership(token_payload: TokenPayload, user: User) -> None:
     if token_payload.sub != str(user.id):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Token does not belong to user")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Token does not belong to user"
+        )

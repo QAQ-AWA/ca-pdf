@@ -40,12 +40,16 @@ async def get_current_user(
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token type")
 
     if await is_token_revoked(session=session, jti=payload.jti):
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token has been revoked")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Token has been revoked"
+        )
 
     try:
         user_id = int(payload.sub)
     except (TypeError, ValueError) as exc:  # pragma: no cover - defensive branch
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid subject claim") from exc
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid subject claim"
+        ) from exc
 
     user = await get_user_by_id(session=session, user_id=user_id)
 
@@ -61,11 +65,15 @@ async def get_current_user(
 def require_roles(*roles: UserRole | str) -> Callable[..., User]:
     """Return a dependency that validates the current user has one of the required roles."""
 
-    allowed_roles = {role.value if isinstance(role, UserRole) else str(role).lower() for role in roles}
+    allowed_roles = {
+        role.value if isinstance(role, UserRole) else str(role).lower() for role in roles
+    }
 
     async def authorizer(current_user: User = Depends(get_current_user)) -> User:
         if allowed_roles and current_user.role not in allowed_roles:
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient permissions")
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient permissions"
+            )
         return current_user
 
     return authorizer

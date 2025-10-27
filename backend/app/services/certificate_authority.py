@@ -22,7 +22,6 @@ from app.models.ca_artifact import CAArtifact, CAArtifactType
 from app.models.certificate import Certificate, CertificateStatus
 from app.services.storage import EncryptedStorageService, StorageError
 
-
 RootPrivateKey = rsa.RSAPrivateKey | ec.EllipticCurvePrivateKey
 LeafPrivateKey = rsa.RSAPrivateKey | ec.EllipticCurvePrivateKey
 
@@ -175,7 +174,9 @@ class CertificateAuthorityService:
                 ),
                 critical=True,
             )
-            .add_extension(x509.SubjectKeyIdentifier.from_public_key(private_key.public_key()), critical=False)
+            .add_extension(
+                x509.SubjectKeyIdentifier.from_public_key(private_key.public_key()), critical=False
+            )
         )
         builder = builder.add_extension(
             x509.AuthorityKeyIdentifier.from_issuer_public_key(private_key.public_key()),
@@ -285,7 +286,9 @@ class CertificateAuthorityService:
                 critical=False,
             )
             .add_extension(
-                x509.AuthorityKeyIdentifier.from_issuer_public_key(root_material.private_key.public_key()),
+                x509.AuthorityKeyIdentifier.from_issuer_public_key(
+                    root_material.private_key.public_key()
+                ),
                 critical=False,
             )
             .add_extension(
@@ -414,10 +417,14 @@ class CertificateAuthorityService:
             raise CertificateImportError("PKCS#12 bundle is missing a certificate or private key")
 
         if certificate.issuer != root_material.certificate.subject:
-            raise CertificateImportError("Imported certificate is not signed by the managed root CA")
+            raise CertificateImportError(
+                "Imported certificate is not signed by the managed root CA"
+            )
 
         serial_hex = f"{certificate.serial_number:x}".upper()
-        existing = await certificate_crud.get_certificate_by_serial(session=session, serial_number=serial_hex)
+        existing = await certificate_crud.get_certificate_by_serial(
+            session=session, serial_number=serial_hex
+        )
         if existing is not None:
             raise CertificateImportError("A certificate with this serial number already exists")
 
@@ -474,7 +481,9 @@ class CertificateAuthorityService:
         await session.commit()
         await session.refresh(certificate_record)
 
-        return ImportedCertificateResult(certificate=certificate_record, certificate_pem=certificate_pem)
+        return ImportedCertificateResult(
+            certificate=certificate_record, certificate_pem=certificate_pem
+        )
 
     async def revoke_certificate(
         self,
@@ -597,18 +606,26 @@ class CertificateAuthorityService:
     async def load_crl_pem(self, *, session: AsyncSession, artifact_id: UUID) -> str:
         """Load the PEM encoded CRL for the supplied artifact."""
 
-        artifact = await ca_artifact_crud.get_artifact_by_id(session=session, artifact_id=artifact_id)
+        artifact = await ca_artifact_crud.get_artifact_by_id(
+            session=session, artifact_id=artifact_id
+        )
         if artifact is None or artifact.file_id is None:
             raise CRLGenerationError("CRL artifact was not found")
-        payload = await self._storage.load_certificate_pem(session=session, file_id=artifact.file_id)
+        payload = await self._storage.load_certificate_pem(
+            session=session, file_id=artifact.file_id
+        )
         return payload
 
-    async def load_certificate_bundle(self, *, session: AsyncSession, certificate: Certificate) -> bytes:
+    async def load_certificate_bundle(
+        self, *, session: AsyncSession, certificate: Certificate
+    ) -> bytes:
         """Return the stored PKCS#12 bundle for a certificate."""
 
         if certificate.certificate_file_id is None:
             raise CertificateAuthorityError("Certificate bundle is not stored")
-        return await self._storage.load_file_bytes(session=session, file_id=certificate.certificate_file_id)
+        return await self._storage.load_file_bytes(
+            session=session, file_id=certificate.certificate_file_id
+        )
 
     async def _load_root_material(self, *, session: AsyncSession) -> RootMaterial:
         artifact = await ca_artifact_crud.get_latest_artifact_by_type(
@@ -621,8 +638,12 @@ class CertificateAuthorityService:
             raise CertificateAuthorityError("Root CA artifact is missing stored material")
 
         try:
-            certificate_pem = await self._storage.load_certificate_pem(session=session, file_id=artifact.file_id)
-            private_key_pem = await self._storage.load_private_key(session=session, secret_id=artifact.secret_id)
+            certificate_pem = await self._storage.load_certificate_pem(
+                session=session, file_id=artifact.file_id
+            )
+            private_key_pem = await self._storage.load_private_key(
+                session=session, secret_id=artifact.secret_id
+            )
         except StorageError as exc:
             raise CertificateAuthorityError("Unable to load root CA material") from exc
 
@@ -632,7 +653,9 @@ class CertificateAuthorityService:
             raise CertificateAuthorityError("Stored root certificate is invalid") from exc
 
         try:
-            private_key = serialization.load_pem_private_key(private_key_pem.encode("utf-8"), password=None)
+            private_key = serialization.load_pem_private_key(
+                private_key_pem.encode("utf-8"), password=None
+            )
         except ValueError as exc:
             raise CertificateAuthorityError("Stored root private key is invalid") from exc
 

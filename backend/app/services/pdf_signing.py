@@ -403,7 +403,7 @@ class PDFSigningService:
             )
 
             output = io.BytesIO()
-            
+
             if visibility == SignatureVisibility.VISIBLE and coordinates:
                 sig_field = fields.SigFieldSpec(
                     sig_field_name="Signature",
@@ -417,7 +417,7 @@ class PDFSigningService:
                 )
 
                 fields.append_signature_field(writer, sig_field)
-                
+
                 signers.sign_pdf(
                     writer,
                     signature_meta=sig_meta,
@@ -432,7 +432,7 @@ class PDFSigningService:
                     signer=signer,
                     output=output,
                 )
-            
+
             return output.getvalue()
 
         except Exception as exc:
