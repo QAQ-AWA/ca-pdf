@@ -28,7 +28,7 @@ async def create_audit_log(
         actor_id=actor_id,
         event_type=event_type,
         resource=resource,
-        metadata=metadata,
+        meta=metadata,
         message=message,
         ip_address=ip_address,
         user_agent=user_agent,

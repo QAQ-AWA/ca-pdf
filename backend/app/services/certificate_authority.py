@@ -332,6 +332,7 @@ class CertificateAuthorityService:
         )
 
         passphrase_bytes = p12_passphrase.encode("utf-8") if p12_passphrase else None
+        encryption_algorithm: serialization.KeySerializationEncryption
         if passphrase_bytes is not None:
             encryption_algorithm = serialization.BestAvailableEncryption(passphrase_bytes)
         else:
@@ -636,10 +637,17 @@ class CertificateAuthorityService:
         except ValueError as exc:
             raise CertificateAuthorityError("Stored root private key is invalid") from exc
 
+        if isinstance(private_key, rsa.RSAPrivateKey):
+            root_private_key: RootPrivateKey = private_key
+        elif isinstance(private_key, ec.EllipticCurvePrivateKey):
+            root_private_key = private_key
+        else:  # pragma: no cover - defensive branch
+            raise CertificateAuthorityError("Stored root private key uses an unsupported algorithm")
+
         return RootMaterial(
             artifact=artifact,
             certificate=certificate,
-            private_key=private_key,
+            private_key=root_private_key,
         )
 
     @staticmethod
@@ -669,11 +677,11 @@ class CertificateAuthorityService:
         attributes = certificate.subject.get_attributes_for_oid(NameOID.COMMON_NAME)
         if not attributes:
             return certificate.subject.rfc4514_string()
-        return attributes[0].value
+        return str(attributes[0].value)
 
     @staticmethod
     def _resolve_organization(certificate: x509.Certificate) -> str | None:
         attributes = certificate.subject.get_attributes_for_oid(NameOID.ORGANIZATION_NAME)
         if not attributes:
             return None
-        return attributes[0].value
+        return str(attributes[0].value)

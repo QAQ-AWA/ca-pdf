@@ -59,7 +59,7 @@ class TSAClient:
         if not self.tsa_url:
             return None
 
-        auth = None
+        auth: tuple[str, str] | None = None
         if self.username and self.password:
             auth = (self.username, self.password)
 
@@ -75,15 +75,15 @@ class TSAClient:
             return False
 
         try:
-            auth = None
+            auth: tuple[str, str] | None = None
             if self.username and self.password:
                 auth = (self.username, self.password)
 
-            response = requests.head(
+            response: requests.Response = requests.head(
                 self.tsa_url,
                 auth=auth,
                 timeout=10,
             )
-            return response.status_code < 500
+            return bool(response.status_code < 500)
         except requests.RequestException:
             return False

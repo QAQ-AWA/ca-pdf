@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
@@ -58,10 +58,13 @@ async def get_current_user(
     return user
 
 
-def require_roles(*roles: UserRole | str) -> Callable[..., User]:
+def require_roles(*roles: UserRole | str) -> Callable[..., Awaitable[User]]:
     """Return a dependency that validates the current user has one of the required roles."""
 
-    allowed_roles = {role.value if isinstance(role, UserRole) else str(role).lower() for role in roles}
+    allowed_roles: set[str] = {
+        role.value if isinstance(role, UserRole) else str(role).lower()
+        for role in roles
+    }
 
     async def authorizer(current_user: User = Depends(get_current_user)) -> User:
         if allowed_roles and current_user.role not in allowed_roles:

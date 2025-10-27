@@ -46,29 +46,25 @@ jobs:
           cache-dependency-path: backend/poetry.lock
 
       - name: Install Poetry
-        uses: snok/install-poetry@v1
-        with:
-          version: "2.2.1"
-          virtualenvs-create: false
-          installer-parallel: true
+        run: python -m pip install poetry==1.8.3
 
       - name: Install backend dependencies
         working-directory: backend
-        run: poetry install --no-interaction --no-root
+        run: python -m poetry install --no-interaction --no-root
 
       - name: Run formatters (black & isort)
         working-directory: backend
         run: |
-          poetry run black --check app tests
-          poetry run isort --check-only app tests
+          python -m poetry run black --check app tests
+          python -m poetry run isort --check-only app tests
 
       - name: Run Alembic migration check
         working-directory: backend
-        run: poetry run alembic check
+        run: python -m poetry run alembic check
 
       - name: Run backend test suite with coverage
         working-directory: backend
-        run: poetry run pytest --cov=app --cov-report=xml --cov-report=term
+        run: python -m poetry run pytest --cov=app --cov-report=xml --cov-report=term
 
       - name: Upload backend coverage report
         if: always()

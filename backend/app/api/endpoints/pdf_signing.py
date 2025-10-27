@@ -17,7 +17,6 @@ from app.models.user import User
 from app.schemas.pdf_signing import (
     PDFBatchSignResponse,
     PDFBatchSignResultItem,
-    PDFSignResponse,
     PDFVerificationResponse,
     SignatureCoordinates,
     SignatureMetadata,
@@ -109,7 +108,7 @@ async def _record_audit_event(
     )
 
 
-@router.post("/sign", response_model=PDFSignResponse)
+@router.post("/sign")
 async def sign_pdf(
     request: Request,
     pdf_file: UploadFile = File(..., description="PDF file to sign"),
@@ -128,7 +127,7 @@ async def sign_pdf(
     embed_ltv: bool = Form(default=False, description="Embed LTV validation material"),
     current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_db),
-) -> PDFSignResponse:
+) -> Response:
     """Sign a single PDF document with a user's certificate."""
 
     if pdf_file.content_type not in settings.pdf_allowed_content_types:
