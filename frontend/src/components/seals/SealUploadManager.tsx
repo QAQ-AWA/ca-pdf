@@ -139,7 +139,7 @@ export const SealUploadManager = ({ onUploaded, maxBytes = DEFAULT_MAX_BYTES }: 
         name: name.trim(),
         description: description.trim() || undefined,
       });
-      setSuccessMessage(`Seal \"${seal.name}\" uploaded successfully.`);
+      setSuccessMessage(`Seal "${seal.name}" uploaded successfully.`);
       setErrors({});
       resetForm();
       onUploaded?.(seal);

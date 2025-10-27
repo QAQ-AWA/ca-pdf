@@ -14,6 +14,10 @@ on:
       - ".github/workflows/frontend-ci.yml"
   workflow_dispatch:
 
+concurrency:
+  group: frontend-ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   lint-test:
     name: Lint and test frontend
@@ -25,9 +29,13 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "20.17.0"
+          check-latest: true
           cache: "npm"
           cache-dependency-path: frontend/package-lock.json
+
+      - name: Enable corepack
+        run: corepack enable
 
       - name: Install frontend dependencies
         working-directory: frontend

@@ -70,8 +70,15 @@ describe("SigningWorkspacePage", () => {
 
     const fileInput = screen.getByLabelText(/select pdf files/i);
     await user.upload(fileInput, file);
-    await waitFor(() => expect(screen.getByText(/contract\.pdf/i)).toBeInTheDocument());
+    expect(await screen.findByText(/contract\.pdf/i)).toBeInTheDocument();
     return file;
+  };
+
+  const waitForPdfRender = async () => {
+    const pageSelect = await screen.findByLabelText(/page/i);
+    await waitFor(() => {
+      expect(pageSelect.querySelectorAll("option").length).toBeGreaterThan(0);
+    });
   };
 
   it("signs a queued document with a visible overlay", async () => {
@@ -79,7 +86,8 @@ describe("SigningWorkspacePage", () => {
     await uploadSamplePdf();
 
     await user.click(screen.getByRole("button", { name: /add overlay/i }));
-    await waitFor(() => expect(screen.getByText(/signature 1/i)).toBeInTheDocument());
+    expect(await screen.findByText(/signature 1/i)).toBeInTheDocument();
+    await waitForPdfRender();
 
     const certificateField = screen.getByLabelText(/certificate id/i);
     await user.clear(certificateField);
@@ -94,7 +102,7 @@ describe("SigningWorkspacePage", () => {
     await user.click(screen.getByRole("button", { name: /sign queued documents/i }));
 
     await waitFor(() => expect(mock.history.post.length).toBe(1));
-    await waitFor(() => expect(screen.getByText(/signed/i)).toBeInTheDocument());
+    expect(await screen.findByText(/signed/i)).toBeInTheDocument();
 
     expect(screen.getByRole("button", { name: /download/i })).toBeInTheDocument();
 
@@ -113,7 +121,8 @@ describe("SigningWorkspacePage", () => {
     await uploadSamplePdf();
 
     await user.click(screen.getByRole("button", { name: /add overlay/i }));
-    await waitFor(() => expect(screen.getByText(/signature 1/i)).toBeInTheDocument());
+    expect(await screen.findByText(/signature 1/i)).toBeInTheDocument();
+    await waitForPdfRender();
 
     await user.click(screen.getByRole("button", { name: /sign queued documents/i }));
 
@@ -126,7 +135,8 @@ describe("SigningWorkspacePage", () => {
     await uploadSamplePdf();
 
     await user.click(screen.getByRole("button", { name: /add overlay/i }));
-    await waitFor(() => expect(screen.getByText(/signature 1/i)).toBeInTheDocument());
+    expect(await screen.findByText(/signature 1/i)).toBeInTheDocument();
+    await waitForPdfRender();
 
     const certificateField = screen.getByLabelText(/certificate id/i);
     await user.type(certificateField, "error-cert");
@@ -135,7 +145,7 @@ describe("SigningWorkspacePage", () => {
 
     await user.click(screen.getByRole("button", { name: /sign queued documents/i }));
 
-    await waitFor(() => expect(screen.getByText(/error/i)).toBeInTheDocument());
-    expect(screen.getByText(/failed to sign document/i)).toBeInTheDocument();
+    expect(await screen.findByText(/error/i)).toBeInTheDocument();
+    expect(await screen.findByText(/failed to sign document/i)).toBeInTheDocument();
   });
 });
