@@ -100,3 +100,49 @@ class PDFBatchSignResponse(BaseModel):
     visibility: SignatureVisibility
     tsa_used: bool
     ltv_embedded: bool
+
+
+class SignatureVerificationResult(BaseModel):
+    """Verification outcome for a single embedded signature."""
+
+    field_name: str = Field(description="Name of the signature field")
+    valid: bool = Field(description="Whether the signature is cryptographically valid")
+    trusted: bool = Field(description="Whether the signature chain is trusted")
+    docmdp_ok: bool | None = Field(default=None, description="Whether document modifications are permitted")
+    modification_level: str | None = Field(
+        default=None,
+        description="Permitted modification level detected for the document",
+    )
+    signing_time: datetime | None = Field(
+        default=None,
+        description="Signing time reported by the signer, if available",
+    )
+    signer_common_name: str | None = Field(default=None, description="Common name from the signer certificate")
+    signer_serial_number: str | None = Field(default=None, description="Serial number of the signer certificate")
+    summary: str = Field(description="Human-readable summary of the verification result")
+    timestamp_trusted: bool | None = Field(
+        default=None,
+        description="Whether the associated timestamp token is trusted",
+    )
+    timestamp_time: datetime | None = Field(
+        default=None,
+        description="Timestamp recorded by the timestamp token, if available",
+    )
+    timestamp_summary: str | None = Field(
+        default=None,
+        description="Summary describing the timestamp validation",
+    )
+    error: str | None = Field(default=None, description="Error message recorded during validation, if any")
+
+
+class PDFVerificationResponse(BaseModel):
+    """Aggregated verification summary for a PDF document."""
+
+    total_signatures: int = Field(description="Total number of signatures detected")
+    valid_signatures: int = Field(description="Number of signatures that are valid")
+    trusted_signatures: int = Field(description="Number of signatures that chain to a trusted root")
+    all_signatures_valid: bool = Field(description="Whether all signatures are valid")
+    all_signatures_trusted: bool = Field(description="Whether all signatures are trusted")
+    signatures: list[SignatureVerificationResult] = Field(
+        description="Per-signature verification details"
+    )

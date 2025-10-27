@@ -24,6 +24,7 @@ from app.services.pdf_signing import (
     SignatureMetadata,
     SignatureVisibility,
 )
+from app.services.pdf_verification import PDFVerificationInputError, PDFVerificationService
 from app.services.storage import EncryptedStorageService
 
 
@@ -63,6 +64,12 @@ async def ca_service() -> CertificateAuthorityService:
 async def pdf_service() -> PDFSigningService:
     """Provide a PDF signing service instance."""
     return PDFSigningService()
+
+
+@pytest.fixture
+async def verification_service() -> PDFVerificationService:
+    """Provide a PDF verification service instance."""
+    return PDFVerificationService()
 
 
 @pytest.fixture
@@ -362,6 +369,52 @@ class TestPDFSigning:
         )
 
         assert result.signed_pdf is not None
+
+
+class TestPDFVerification:
+    """Tests for PDF signature verification."""
+
+    async def test_verify_signed_pdf(
+        self,
+        pdf_service: PDFSigningService,
+        verification_service: PDFVerificationService,
+        db_session: AsyncSession,
+        user_certificate: tuple[str, int],
+    ) -> None:
+        """Ensure successfully signed PDFs validate correctly."""
+
+        cert_id, owner_id = user_certificate
+        pdf_data = create_minimal_pdf()
+
+        sign_result = await pdf_service.sign_pdf(
+            session=db_session,
+            pdf_data=pdf_data,
+            certificate_id=cert_id,
+            user_id=owner_id,
+            visibility=SignatureVisibility.INVISIBLE,
+        )
+
+        report = await verification_service.verify_pdf(session=db_session, pdf_data=sign_result.signed_pdf)
+
+        assert report.total_signatures == 1
+        assert report.valid_signatures == 1
+        assert report.trusted_signatures == 1
+        signature = report.signatures[0]
+        assert signature.valid is True
+        assert signature.trusted is True
+        assert signature.error is None
+
+    async def test_verify_pdf_without_signature(
+        self,
+        verification_service: PDFVerificationService,
+        db_session: AsyncSession,
+    ) -> None:
+        """Ensure unsigned PDFs raise validation errors."""
+
+        pdf_data = create_minimal_pdf()
+
+        with pytest.raises(PDFVerificationInputError, match="signature"):
+            await verification_service.verify_pdf(session=db_session, pdf_data=pdf_data)
 
 
 class TestBatchSigning:
