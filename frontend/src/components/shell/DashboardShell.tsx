@@ -7,6 +7,7 @@ import { useTheme } from "../ThemeProvider";
 
 const navigationLinks = [
   { to: "/", label: "Overview" },
+  { to: "/signing", label: "Signing" },
   { to: "/settings", label: "Settings" },
   { to: "/admin", label: "Admin", roles: ["admin"] as string[] },
 ];

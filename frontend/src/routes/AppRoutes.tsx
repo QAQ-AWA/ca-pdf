@@ -3,6 +3,7 @@ import { Route, Routes } from "react-router-dom";
 import { ProtectedRoute } from "../components/router/ProtectedRoute";
 import { DashboardShell } from "../components/shell/DashboardShell";
 import { OverviewPage } from "../pages/dashboard/OverviewPage";
+import { SigningWorkspacePage } from "../pages/dashboard/SigningWorkspacePage";
 import { SettingsPage } from "../pages/dashboard/SettingsPage";
 import { AdminPage } from "../pages/dashboard/AdminPage";
 import { LoginPage } from "../pages/LoginPage";
@@ -24,6 +25,7 @@ export const AppRoutes = () => (
       }
     >
       <Route index element={<OverviewPage />} />
+      <Route path="signing" element={<SigningWorkspacePage />} />
       <Route path="settings" element={<SettingsPage />} />
       <Route
         path="admin"
