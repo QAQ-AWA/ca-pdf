@@ -5,11 +5,11 @@ from __future__ import annotations
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
+from app.crud.role import ensure_default_roles
+from app.crud.user import ensure_admin_user
 from app.db import base  # noqa: F401  # Ensure models are imported for metadata
 from app.db.base import Base
 from app.db.session import get_engine, get_session_factory
-from app.crud.role import ensure_default_roles
-from app.crud.user import ensure_admin_user
 
 
 async def init_db() -> None:

@@ -7,7 +7,7 @@ packages = [{ include = "app" }]
 readme = "README.md"
 
 [tool.poetry.dependencies]
-python = "^3.11"
+python = ">=3.11,<3.13"
 alembic = "^1.13.2"
 aiosqlite = "^0.20.0"
 asyncpg = "^0.29.0"

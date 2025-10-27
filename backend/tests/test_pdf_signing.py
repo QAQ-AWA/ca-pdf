@@ -13,7 +13,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.crud import certificate as certificate_crud
 from app.crud import seal as seal_crud
 from app.db.session import get_db
-from app.services.certificate_authority import CertificateAuthorityService, LeafKeyAlgorithm, RootKeyAlgorithm
+from app.services.certificate_authority import (
+    CertificateAuthorityService,
+    LeafKeyAlgorithm,
+    RootKeyAlgorithm,
+)
 from app.services.pdf_signing import (
     CertificateInvalidError,
     CertificateNotFoundError,
@@ -394,7 +398,9 @@ class TestPDFVerification:
             visibility=SignatureVisibility.INVISIBLE,
         )
 
-        report = await verification_service.verify_pdf(session=db_session, pdf_data=sign_result.signed_pdf)
+        report = await verification_service.verify_pdf(
+            session=db_session, pdf_data=sign_result.signed_pdf
+        )
 
         assert report.total_signatures == 1
         assert report.valid_signatures == 1
