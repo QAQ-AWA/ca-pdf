@@ -11,6 +11,7 @@ from starlette.responses import Response
 
 from app.api.dependencies.auth import get_current_user
 from app.core.config import settings
+from app.core.uploads import read_upload_file
 from app.crud import audit_log as audit_log_crud
 from app.db.session import get_db
 from app.models.user import User
@@ -131,19 +132,13 @@ async def sign_pdf(
 ) -> PDFSignResponse:
     """Sign a single PDF document with a user's certificate."""
 
-    if pdf_file.content_type not in settings.pdf_allowed_content_types:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Invalid content type: {pdf_file.content_type}",
-        )
-
-    try:
-        pdf_data = await pdf_file.read()
-    except Exception as exc:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Failed to read PDF file: {exc}",
-        ) from exc
+    pdf_data = await read_upload_file(
+        pdf_file,
+        allowed_content_types=settings.pdf_allowed_content_types,
+        max_bytes=settings.pdf_max_bytes,
+        kind="PDF",
+        filename=pdf_file.filename,
+    )
 
     try:
         cert_uuid = UUID(certificate_id)
@@ -320,20 +315,16 @@ async def batch_sign_pdfs(
         metadata = SignatureMetadata(reason=reason, location=location, contact_info=contact_info)
 
     pdfs: list[tuple[str, bytes]] = []
-    for pdf_file in pdf_files:
-        if pdf_file.content_type not in settings.pdf_allowed_content_types:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Invalid content type for {pdf_file.filename}: {pdf_file.content_type}",
-            )
-        try:
-            pdf_data = await pdf_file.read()
-            pdfs.append((pdf_file.filename or "unknown.pdf", pdf_data))
-        except Exception as exc:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Failed to read {pdf_file.filename}: {exc}",
-            ) from exc
+    for index, pdf_file in enumerate(pdf_files, start=1):
+        filename = pdf_file.filename or f"document-{index}.pdf"
+        pdf_data = await read_upload_file(
+            pdf_file,
+            allowed_content_types=settings.pdf_allowed_content_types,
+            max_bytes=settings.pdf_max_bytes,
+            kind="PDF",
+            filename=filename,
+        )
+        pdfs.append((filename, pdf_data))
 
     service = PDFSigningService()
 
@@ -440,19 +431,13 @@ async def verify_pdf(
 ) -> PDFVerificationResponse:
     """Validate signatures embedded in a PDF document."""
 
-    if pdf_file.content_type not in settings.pdf_allowed_content_types:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Invalid content type: {pdf_file.content_type}",
-        )
-
-    try:
-        pdf_data = await pdf_file.read()
-    except Exception as exc:  # pragma: no cover - defensive branch
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Failed to read PDF file: {exc}",
-        ) from exc
+    pdf_data = await read_upload_file(
+        pdf_file,
+        allowed_content_types=settings.pdf_allowed_content_types,
+        max_bytes=settings.pdf_max_bytes,
+        kind="PDF",
+        filename=pdf_file.filename,
+    )
 
     verification_service = PDFVerificationService()
 

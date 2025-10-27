@@ -49,6 +49,60 @@ class Settings(BaseSettings):
         default_factory=lambda: ["*"],
         alias="BACKEND_CORS_ORIGINS",
     )
+    log_level: str = Field(default="INFO", alias="LOG_LEVEL")
+    metrics_endpoint: str = Field(default="/metrics", alias="METRICS_ENDPOINT")
+
+    enable_cors: bool = Field(default=True, alias="ENABLE_CORS")
+    cors_allow_credentials: bool = Field(default=False, alias="CORS_ALLOW_CREDENTIALS")
+    cors_allow_methods: list[str] = Field(
+        default_factory=lambda: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+        alias="CORS_ALLOW_METHODS",
+    )
+    cors_allow_headers: list[str] = Field(
+        default_factory=lambda: ["Authorization", "Content-Type"],
+        alias="CORS_ALLOW_HEADERS",
+    )
+    cors_expose_headers: list[str] = Field(
+        default_factory=lambda: ["X-Request-ID"],
+        alias="CORS_EXPOSE_HEADERS",
+    )
+    cors_max_age: int = Field(default=600, alias="CORS_MAX_AGE")
+
+    trusted_hosts: list[str] = Field(default_factory=lambda: ["*"], alias="TRUSTED_HOSTS")
+    enable_proxy_headers: bool = Field(default=True, alias="ENABLE_PROXY_HEADERS")
+    proxy_trusted_hosts: list[str] = Field(
+        default_factory=lambda: ["*"],
+        alias="PROXY_TRUSTED_HOSTS",
+    )
+
+    force_https_redirect: bool = Field(default=False, alias="FORCE_HTTPS_REDIRECT")
+    security_headers_enabled: bool = Field(default=True, alias="ENABLE_SECURITY_HEADERS")
+    security_hsts_seconds: int = Field(default=0, alias="SECURITY_HSTS_SECONDS")
+    security_hsts_include_subdomains: bool = Field(
+        default=False,
+        alias="SECURITY_HSTS_INCLUDE_SUBDOMAINS",
+    )
+    security_hsts_preload: bool = Field(default=False, alias="SECURITY_HSTS_PRELOAD")
+    security_referrer_policy: str | None = Field(
+        default="same-origin",
+        alias="SECURITY_REFERRER_POLICY",
+    )
+    security_permissions_policy: str | None = Field(
+        default=None,
+        alias="SECURITY_PERMISSIONS_POLICY",
+    )
+    security_cross_origin_opener_policy: str | None = Field(
+        default=None,
+        alias="SECURITY_CROSS_ORIGIN_OPENER_POLICY",
+    )
+    security_cross_origin_embedder_policy: str | None = Field(
+        default=None,
+        alias="SECURITY_CROSS_ORIGIN_EMBEDDER_POLICY",
+    )
+    security_cross_origin_resource_policy: str | None = Field(
+        default=None,
+        alias="SECURITY_CROSS_ORIGIN_RESOURCE_POLICY",
+    )
 
     auth_rate_limit_requests: int = Field(default=5, alias="AUTH_RATE_LIMIT_REQUESTS")
     auth_rate_limit_window_seconds: int = Field(default=60, alias="AUTH_RATE_LIMIT_WINDOW_SECONDS")
@@ -94,6 +148,59 @@ class Settings(BaseSettings):
     def _assemble_cors_origins(cls, value: Any) -> list[str]:
         parsed = cls._normalize_sequence(value)
         return parsed or ["*"]
+
+    @field_validator("log_level", mode="before")
+    @classmethod
+    def _normalize_log_level(cls, value: Any) -> str:
+        if value is None:
+            return "INFO"
+        return str(value).upper()
+
+    @field_validator("metrics_endpoint", mode="before")
+    @classmethod
+    def _normalize_metrics_endpoint(cls, value: Any) -> str:
+        if value is None:
+            return "/metrics"
+        candidate = str(value).strip()
+        if not candidate:
+            raise ValueError("Metrics endpoint cannot be empty")
+        if not candidate.startswith("/"):
+            raise ValueError("Metrics endpoint must start with '/'")
+        return candidate
+
+    @field_validator(
+        "cors_allow_methods",
+        "cors_allow_headers",
+        "cors_expose_headers",
+        "trusted_hosts",
+        "proxy_trusted_hosts",
+        mode="before",
+    )
+    @classmethod
+    def _assemble_string_lists(cls, value: Any) -> list[str]:
+        return cls._normalize_sequence(value)
+
+    @field_validator("cors_max_age")
+    @classmethod
+    def _validate_cors_max_age(cls, value: int) -> int:
+        if value < 0:
+            raise ValueError("CORS max age must be non-negative")
+        return value
+
+    @field_validator(
+        "security_referrer_policy",
+        "security_permissions_policy",
+        "security_cross_origin_opener_policy",
+        "security_cross_origin_embedder_policy",
+        "security_cross_origin_resource_policy",
+        mode="before",
+    )
+    @classmethod
+    def _normalize_optional_policies(cls, value: Any) -> str | None:
+        if value is None:
+            return None
+        text = str(value).strip()
+        return text or None
 
     @field_validator("seal_image_allowed_content_types", mode="before")
     @classmethod
