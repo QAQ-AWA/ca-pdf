@@ -45,7 +45,9 @@ class TSAClient:
     ) -> None:
         self.tsa_url = tsa_url or settings.tsa_url
         self.username = username or settings.tsa_username
-        self.password = password or (settings.tsa_password.get_secret_value() if settings.tsa_password else None)
+        self.password = password or (
+            settings.tsa_password.get_secret_value() if settings.tsa_password else None
+        )
 
     def is_configured(self) -> bool:
         """Check if TSA is configured and available."""

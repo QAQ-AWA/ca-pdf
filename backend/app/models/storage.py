@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 from uuid import UUID, uuid4
 
 from sqlalchemy import DateTime, ForeignKey, Integer, LargeBinary, String, Uuid
@@ -23,7 +23,9 @@ class FileMetadata(Base):
     __tablename__ = "file_metadata"
 
     id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
-    owner_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("users.id", ondelete="SET NULL"))
+    owner_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("users.id", ondelete="SET NULL")
+    )
     filename: Mapped[str] = mapped_column(String(255), nullable=False)
     content_type: Mapped[str] = mapped_column(String(128), nullable=False)
     size_bytes: Mapped[int] = mapped_column(Integer, nullable=False)
@@ -48,7 +50,9 @@ class FileMetadata(Base):
         uselist=False,
         cascade="all, delete-orphan",
     )
-    certificates: Mapped[list["Certificate"]] = relationship("Certificate", back_populates="certificate_file")
+    certificates: Mapped[list["Certificate"]] = relationship(
+        "Certificate", back_populates="certificate_file"
+    )
     seals: Mapped[list["Seal"]] = relationship("Seal", back_populates="image_file")
     ca_artifacts: Mapped[list["CAArtifact"]] = relationship("CAArtifact", back_populates="file")
 
