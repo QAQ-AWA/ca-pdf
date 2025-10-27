@@ -1,0 +1,50 @@
+version: "3.9"
+
+services:
+  db:
+    image: ${POSTGRES_IMAGE:-postgres:15-alpine}
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-app_db}
+      POSTGRES_USER: ${POSTGRES_USER:-app_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-app_password}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -d ${POSTGRES_DB:-app_db} -U ${POSTGRES_USER:-app_user}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  backend:
+    image: ${BACKEND_IMAGE:-ghcr.io/example/monorepo-backend:latest}
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+    depends_on:
+      db:
+        condition: service_healthy
+    env_file:
+      - ${BACKEND_ENV_FILE:-deploy/env/backend.env}
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgresql+asyncpg://app_user:app_password@db:5432/app_db}
+    ports:
+      - "${BACKEND_PORT:-8000}:8000"
+    restart: unless-stopped
+
+  frontend:
+    image: ${FRONTEND_IMAGE:-ghcr.io/example/monorepo-frontend:latest}
+    build:
+      context: ../frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_APP_NAME: ${FRONTEND_VITE_APP_NAME:-Monorepo UI}
+        VITE_API_BASE_URL: ${FRONTEND_VITE_API_BASE_URL:-http://localhost:8000}
+    depends_on:
+      - backend
+    ports:
+      - "${FRONTEND_PORT:-3000}:80"
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
