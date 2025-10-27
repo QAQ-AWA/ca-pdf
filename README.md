@@ -48,6 +48,29 @@ This repository provides a monorepo layout with a FastAPI backend and a Vite + R
 - **Frontend**: Vite, React, TypeScript, Vitest, Testing Library, ESLint, Prettier.
 - **Shared config**: Centralised ESLint and Prettier rules in `config/` for reuse across packages.
 
+## CI troubleshooting
+
+You can reproduce the GitHub Actions workflows locally with [`act`](https://github.com/nektos/act) to mirror the checks that run in CI:
+
+```bash
+# Run frontend linting and tests
+act pull_request -j frontend-ci --workflows .github/workflows/frontend-ci.yml
+
+# Run backend linting, migrations, and tests
+act pull_request -j backend-ci --workflows .github/workflows/backend-ci.yml
+
+# Exercise the multi-arch Docker build matrix (requires Docker Buildx)
+act push -j build-and-push --workflows .github/workflows/docker-build.yml \
+  --secret GITHUB_TOKEN=$(gh auth token)
+```
+
+When iterating without `act`, the Makefile targets are aligned with CI:
+
+```bash
+make lint      # eslint, black, isort
+make test      # pytest and vitest suites
+```
+
 ## Containerised local environment
 
 The repository includes production-ready Docker images and a local stack powered by Docker Compose, Traefik, and PostgreSQL. This flow mirrors a TLS-enabled deployment while keeping databases and certificates persistent across restarts.

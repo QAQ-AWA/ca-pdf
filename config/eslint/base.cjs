@@ -1,3 +1,8 @@
+const resolveFromCwd = (specifier) =>
+  require.resolve(specifier, {
+    paths: [process.cwd(), __dirname],
+  });
+
 module.exports = {
   env: {
     browser: true,
@@ -10,7 +15,7 @@ module.exports = {
     "plugin:@typescript-eslint/recommended",
     "plugin:react-hooks/recommended",
   ],
-  parser: "@typescript-eslint/parser",
+  parser: resolveFromCwd("@typescript-eslint/parser"),
   parserOptions: {
     ecmaVersion: "latest",
     sourceType: "module",

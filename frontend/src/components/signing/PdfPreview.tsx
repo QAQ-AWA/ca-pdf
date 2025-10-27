@@ -171,12 +171,12 @@ const PdfPreviewComponent = ({
         canvas.height = resources.renderViewport.height;
 
         try {
-          const renderTask = resources.page.render({
+          const view = resources.page.render({
             canvasContext: context,
             viewport: resources.renderViewport,
           });
-          resources.renderTask = renderTask;
-          await renderTask.promise;
+          resources.renderTask = view;
+          await view.promise;
         } catch (renderError) {
           if (import.meta.env.DEV) {
             console.warn("Failed to render PDF page", renderError);

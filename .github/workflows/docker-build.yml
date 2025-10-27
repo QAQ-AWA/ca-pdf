@@ -16,17 +16,31 @@ permissions:
   packages: write
   id-token: write
 
+concurrency:
+  group: docker-build-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build-and-push:
     name: Build and publish multi-arch images
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
         include:
           - service: backend
             dockerfile: backend/Dockerfile
+            build-args: |
+              BUILD_VERSION=${{ github.ref_name }}
+              COMMIT_SHA=${{ github.sha }}
           - service: frontend
             dockerfile: frontend/Dockerfile
+            build-args: |
+              BUILD_VERSION=${{ github.ref_name }}
+              COMMIT_SHA=${{ github.sha }}
+              VITE_API_BASE_URL=${{ vars.VITE_API_BASE_URL || 'https://api.example.com' }}
+              VITE_PUBLIC_BASE_URL=${{ vars.VITE_PUBLIC_BASE_URL || 'https://app.example.com' }}
+              VITE_APP_NAME=${{ vars.VITE_APP_NAME || 'Monorepo UI' }}
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -67,6 +81,4 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           cache-from: type=gha,scope=${{ matrix.service }}
           cache-to: type=gha,scope=${{ matrix.service }},mode=max
-          build-args: |
-            BUILD_VERSION=${{ github.ref_name }}
-            COMMIT_SHA=${{ github.sha }}
+          build-args: ${{ matrix.build-args }}

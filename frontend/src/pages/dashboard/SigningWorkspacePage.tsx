@@ -475,7 +475,16 @@ export const SigningWorkspacePage = () => {
             )
           );
         } catch (error) {
-          const message = error instanceof Error ? error.message : "Failed to sign document.";
+          const fallbackMessage = "Failed to sign document.";
+          const message = (() => {
+            if (error instanceof Error) {
+              const trimmed = error.message.trim();
+              if (trimmed && trimmed !== "Request failed with status code 500") {
+                return trimmed;
+              }
+            }
+            return fallbackMessage;
+          })();
           setDocuments((prev) =>
             prev.map((item) =>
               item.id === document.id ? { ...item, status: "error", error: message, signedBlob: null } : item
