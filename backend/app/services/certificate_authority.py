@@ -22,7 +22,6 @@ from app.models.ca_artifact import CAArtifact, CAArtifactType
 from app.models.certificate import Certificate, CertificateStatus
 from app.services.storage import EncryptedStorageService, StorageError
 
-
 RootPrivateKey = rsa.RSAPrivateKey | ec.EllipticCurvePrivateKey
 LeafPrivateKey = rsa.RSAPrivateKey | ec.EllipticCurvePrivateKey
 
@@ -141,7 +140,9 @@ class CertificateAuthorityService:
             artifact_type=CAArtifactType.ROOT_CERTIFICATE,
         )
         if existing is not None:
-            raise RootCAAlreadyExistsError("A root certificate authority is already present")
+            raise RootCAAlreadyExistsError(
+                "A root certificate authority is already present"
+            )
 
         private_key = self._generate_root_private_key(algorithm)
         now = datetime.now(timezone.utc)
@@ -149,7 +150,9 @@ class CertificateAuthorityService:
 
         subject_attributes = [x509.NameAttribute(NameOID.COMMON_NAME, common_name)]
         if organization:
-            subject_attributes.append(x509.NameAttribute(NameOID.ORGANIZATION_NAME, organization))
+            subject_attributes.append(
+                x509.NameAttribute(NameOID.ORGANIZATION_NAME, organization)
+            )
         subject = x509.Name(subject_attributes)
 
         builder = (
@@ -160,7 +163,9 @@ class CertificateAuthorityService:
             .serial_number(serial_number)
             .not_valid_before(now - timedelta(days=1))
             .not_valid_after(now + timedelta(days=validity_days))
-            .add_extension(x509.BasicConstraints(ca=True, path_length=None), critical=True)
+            .add_extension(
+                x509.BasicConstraints(ca=True, path_length=None), critical=True
+            )
             .add_extension(
                 x509.KeyUsage(
                     digital_signature=False,
@@ -175,15 +180,22 @@ class CertificateAuthorityService:
                 ),
                 critical=True,
             )
-            .add_extension(x509.SubjectKeyIdentifier.from_public_key(private_key.public_key()), critical=False)
+            .add_extension(
+                x509.SubjectKeyIdentifier.from_public_key(private_key.public_key()),
+                critical=False,
+            )
         )
         builder = builder.add_extension(
-            x509.AuthorityKeyIdentifier.from_issuer_public_key(private_key.public_key()),
+            x509.AuthorityKeyIdentifier.from_issuer_public_key(
+                private_key.public_key()
+            ),
             critical=False,
         )
         certificate = builder.sign(private_key=private_key, algorithm=hashes.SHA256())
 
-        certificate_pem = certificate.public_bytes(serialization.Encoding.PEM).decode("utf-8")
+        certificate_pem = certificate.public_bytes(serialization.Encoding.PEM).decode(
+            "utf-8"
+        )
         private_key_pem = private_key.private_bytes(
             encoding=serialization.Encoding.PEM,
             format=serialization.PrivateFormat.PKCS8,
@@ -242,7 +254,9 @@ class CertificateAuthorityService:
         """Return the PEM encoded root certificate."""
 
         root_material = await self._load_root_material(session=session)
-        return root_material.certificate.public_bytes(serialization.Encoding.PEM).decode("utf-8")
+        return root_material.certificate.public_bytes(
+            serialization.Encoding.PEM
+        ).decode("utf-8")
 
     async def issue_certificate(
         self,
@@ -268,7 +282,9 @@ class CertificateAuthorityService:
 
         subject_attributes = [x509.NameAttribute(NameOID.COMMON_NAME, common_name)]
         if organization:
-            subject_attributes.append(x509.NameAttribute(NameOID.ORGANIZATION_NAME, organization))
+            subject_attributes.append(
+                x509.NameAttribute(NameOID.ORGANIZATION_NAME, organization)
+            )
         subject = x509.Name(subject_attributes)
 
         builder = (
@@ -279,13 +295,19 @@ class CertificateAuthorityService:
             .serial_number(serial_number)
             .not_valid_before(now - timedelta(minutes=1))
             .not_valid_after(now + timedelta(days=validity_days))
-            .add_extension(x509.BasicConstraints(ca=False, path_length=None), critical=True)
             .add_extension(
-                x509.SubjectKeyIdentifier.from_public_key(leaf_private_key.public_key()),
+                x509.BasicConstraints(ca=False, path_length=None), critical=True
+            )
+            .add_extension(
+                x509.SubjectKeyIdentifier.from_public_key(
+                    leaf_private_key.public_key()
+                ),
                 critical=False,
             )
             .add_extension(
-                x509.AuthorityKeyIdentifier.from_issuer_public_key(root_material.private_key.public_key()),
+                x509.AuthorityKeyIdentifier.from_issuer_public_key(
+                    root_material.private_key.public_key()
+                ),
                 critical=False,
             )
             .add_extension(
@@ -313,8 +335,12 @@ class CertificateAuthorityService:
             )
         )
 
-        certificate = builder.sign(private_key=root_material.private_key, algorithm=hashes.SHA256())
-        certificate_pem = certificate.public_bytes(serialization.Encoding.PEM).decode("utf-8")
+        certificate = builder.sign(
+            private_key=root_material.private_key, algorithm=hashes.SHA256()
+        )
+        certificate_pem = certificate.public_bytes(serialization.Encoding.PEM).decode(
+            "utf-8"
+        )
         private_key_pem = leaf_private_key.private_bytes(
             encoding=serialization.Encoding.PEM,
             format=serialization.PrivateFormat.PKCS8,
@@ -333,7 +359,9 @@ class CertificateAuthorityService:
 
         passphrase_bytes = p12_passphrase.encode("utf-8") if p12_passphrase else None
         if passphrase_bytes is not None:
-            encryption_algorithm = serialization.BestAvailableEncryption(passphrase_bytes)
+            encryption_algorithm = serialization.BestAvailableEncryption(
+                passphrase_bytes
+            )
         else:
             encryption_algorithm = serialization.NoEncryption()
 
@@ -403,30 +431,42 @@ class CertificateAuthorityService:
         root_material = await self._load_root_material(session=session)
 
         try:
-            private_key, certificate, additional_certs = pkcs12.load_key_and_certificates(
-                bundle_bytes,
-                passphrase.encode("utf-8") if passphrase else None,
+            private_key, certificate, additional_certs = (
+                pkcs12.load_key_and_certificates(
+                    bundle_bytes,
+                    passphrase.encode("utf-8") if passphrase else None,
+                )
             )
         except ValueError as exc:  # Raised for invalid P12 structures or passphrases
             raise CertificateImportError("Unable to parse PKCS#12 bundle") from exc
 
         if certificate is None or private_key is None:
-            raise CertificateImportError("PKCS#12 bundle is missing a certificate or private key")
+            raise CertificateImportError(
+                "PKCS#12 bundle is missing a certificate or private key"
+            )
 
         if certificate.issuer != root_material.certificate.subject:
-            raise CertificateImportError("Imported certificate is not signed by the managed root CA")
+            raise CertificateImportError(
+                "Imported certificate is not signed by the managed root CA"
+            )
 
         serial_hex = f"{certificate.serial_number:x}".upper()
-        existing = await certificate_crud.get_certificate_by_serial(session=session, serial_number=serial_hex)
+        existing = await certificate_crud.get_certificate_by_serial(
+            session=session, serial_number=serial_hex
+        )
         if existing is not None:
-            raise CertificateImportError("A certificate with this serial number already exists")
+            raise CertificateImportError(
+                "A certificate with this serial number already exists"
+            )
 
         private_key_pem = private_key.private_bytes(
             encoding=serialization.Encoding.PEM,
             format=serialization.PrivateFormat.PKCS8,
             encryption_algorithm=serialization.NoEncryption(),
         ).decode("utf-8")
-        certificate_pem = certificate.public_bytes(serialization.Encoding.PEM).decode("utf-8")
+        certificate_pem = certificate.public_bytes(serialization.Encoding.PEM).decode(
+            "utf-8"
+        )
 
         key_filename = f"cert-import-key-{uuid4().hex}.pem"
         bundle_filename = f"cert-import-{uuid4().hex}.p12"
@@ -474,7 +514,9 @@ class CertificateAuthorityService:
         await session.commit()
         await session.refresh(certificate_record)
 
-        return ImportedCertificateResult(certificate=certificate_record, certificate_pem=certificate_pem)
+        return ImportedCertificateResult(
+            certificate=certificate_record, certificate_pem=certificate_pem
+        )
 
     async def revoke_certificate(
         self,
@@ -523,7 +565,9 @@ class CertificateAuthorityService:
             raise CRLGenerationError("CRL next update interval must be positive")
 
         root_material = await self._load_root_material(session=session)
-        revoked_certificates = await certificate_crud.list_revoked_certificates(session=session)
+        revoked_certificates = await certificate_crud.list_revoked_certificates(
+            session=session
+        )
         now = datetime.now(timezone.utc)
 
         builder = (
@@ -538,7 +582,9 @@ class CertificateAuthorityService:
             try:
                 serial_int = int(revoked.serial_number, 16)
             except ValueError as exc:
-                raise CRLGenerationError("Stored certificate serial number is invalid") from exc
+                raise CRLGenerationError(
+                    "Stored certificate serial number is invalid"
+                ) from exc
             revocation_source = revoked.updated_at or now
             revocation_date = self._ensure_utc(revocation_source)
             revoked_entry = (
@@ -550,7 +596,9 @@ class CertificateAuthorityService:
             builder = builder.add_revoked_certificate(revoked_entry)
             revoked_serials.append(revoked.serial_number)
 
-        crl = builder.sign(private_key=root_material.private_key, algorithm=hashes.SHA256())
+        crl = builder.sign(
+            private_key=root_material.private_key, algorithm=hashes.SHA256()
+        )
         crl_pem = crl.public_bytes(serialization.Encoding.PEM).decode("utf-8")
 
         filename = f"crl-{now.strftime('%Y%m%d%H%M%S')}.pem"
@@ -584,7 +632,9 @@ class CertificateAuthorityService:
         await session.commit()
         await session.refresh(artifact)
 
-        return CRLResult(artifact=artifact, crl_pem=crl_pem, revoked_serials=revoked_serials)
+        return CRLResult(
+            artifact=artifact, crl_pem=crl_pem, revoked_serials=revoked_serials
+        )
 
     async def list_crls(self, *, session: AsyncSession) -> Sequence[CAArtifact]:
         """Return CRL artifacts ordered from newest to oldest."""
@@ -597,18 +647,26 @@ class CertificateAuthorityService:
     async def load_crl_pem(self, *, session: AsyncSession, artifact_id: UUID) -> str:
         """Load the PEM encoded CRL for the supplied artifact."""
 
-        artifact = await ca_artifact_crud.get_artifact_by_id(session=session, artifact_id=artifact_id)
+        artifact = await ca_artifact_crud.get_artifact_by_id(
+            session=session, artifact_id=artifact_id
+        )
         if artifact is None or artifact.file_id is None:
             raise CRLGenerationError("CRL artifact was not found")
-        payload = await self._storage.load_certificate_pem(session=session, file_id=artifact.file_id)
+        payload = await self._storage.load_certificate_pem(
+            session=session, file_id=artifact.file_id
+        )
         return payload
 
-    async def load_certificate_bundle(self, *, session: AsyncSession, certificate: Certificate) -> bytes:
+    async def load_certificate_bundle(
+        self, *, session: AsyncSession, certificate: Certificate
+    ) -> bytes:
         """Return the stored PKCS#12 bundle for a certificate."""
 
         if certificate.certificate_file_id is None:
             raise CertificateAuthorityError("Certificate bundle is not stored")
-        return await self._storage.load_file_bytes(session=session, file_id=certificate.certificate_file_id)
+        return await self._storage.load_file_bytes(
+            session=session, file_id=certificate.certificate_file_id
+        )
 
     async def _load_root_material(self, *, session: AsyncSession) -> RootMaterial:
         artifact = await ca_artifact_crud.get_latest_artifact_by_type(
@@ -616,25 +674,41 @@ class CertificateAuthorityService:
             artifact_type=CAArtifactType.ROOT_CERTIFICATE,
         )
         if artifact is None:
-            raise RootCANotFoundError("Root certificate authority has not been generated")
+            raise RootCANotFoundError(
+                "Root certificate authority has not been generated"
+            )
         if artifact.file_id is None or artifact.secret_id is None:
-            raise CertificateAuthorityError("Root CA artifact is missing stored material")
+            raise CertificateAuthorityError(
+                "Root CA artifact is missing stored material"
+            )
 
         try:
-            certificate_pem = await self._storage.load_certificate_pem(session=session, file_id=artifact.file_id)
-            private_key_pem = await self._storage.load_private_key(session=session, secret_id=artifact.secret_id)
+            certificate_pem = await self._storage.load_certificate_pem(
+                session=session, file_id=artifact.file_id
+            )
+            private_key_pem = await self._storage.load_private_key(
+                session=session, secret_id=artifact.secret_id
+            )
         except StorageError as exc:
             raise CertificateAuthorityError("Unable to load root CA material") from exc
 
         try:
-            certificate = x509.load_pem_x509_certificate(certificate_pem.encode("utf-8"))
+            certificate = x509.load_pem_x509_certificate(
+                certificate_pem.encode("utf-8")
+            )
         except ValueError as exc:
-            raise CertificateAuthorityError("Stored root certificate is invalid") from exc
+            raise CertificateAuthorityError(
+                "Stored root certificate is invalid"
+            ) from exc
 
         try:
-            private_key = serialization.load_pem_private_key(private_key_pem.encode("utf-8"), password=None)
+            private_key = serialization.load_pem_private_key(
+                private_key_pem.encode("utf-8"), password=None
+            )
         except ValueError as exc:
-            raise CertificateAuthorityError("Stored root private key is invalid") from exc
+            raise CertificateAuthorityError(
+                "Stored root private key is invalid"
+            ) from exc
 
         return RootMaterial(
             artifact=artifact,
@@ -673,7 +747,9 @@ class CertificateAuthorityService:
 
     @staticmethod
     def _resolve_organization(certificate: x509.Certificate) -> str | None:
-        attributes = certificate.subject.get_attributes_for_oid(NameOID.ORGANIZATION_NAME)
+        attributes = certificate.subject.get_attributes_for_oid(
+            NameOID.ORGANIZATION_NAME
+        )
         if not attributes:
             return None
         return attributes[0].value

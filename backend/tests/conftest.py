@@ -69,5 +69,7 @@ async def reset_state() -> AsyncGenerator[None, None]:
 async def client() -> AsyncGenerator[AsyncClient, None]:
     """Provide an asynchronous HTTP client bound to the FastAPI app."""
 
-    async with AsyncClient(app=app_main.app, base_url="http://testserver") as async_client:
+    async with AsyncClient(
+        app=app_main.app, base_url="http://testserver"
+    ) as async_client:
         yield async_client

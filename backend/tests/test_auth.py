@@ -19,7 +19,9 @@ ME_URL = f"{settings.api_v1_prefix}/auth/me"
 ADMIN_PING_URL = f"{settings.api_v1_prefix}/auth/admin/ping"
 
 ADMIN_EMAIL = settings.admin_email or os.environ.get("ADMIN_EMAIL", "admin@example.com")
-ADMIN_PASSWORD = settings.admin_password or os.environ.get("ADMIN_PASSWORD", "AdminPass123!")
+ADMIN_PASSWORD = settings.admin_password or os.environ.get(
+    "ADMIN_PASSWORD", "AdminPass123!"
+)
 
 
 @pytest.mark.anyio
@@ -96,7 +98,10 @@ async def test_logout_revokes_tokens(client: AsyncClient) -> None:
     )
 
     assert me_response.status_code == 401
-    assert me_response.json()["detail"] in {"Token has been revoked", "Not authenticated"}
+    assert me_response.json()["detail"] in {
+        "Token has been revoked",
+        "Not authenticated",
+    }
 
     refresh_response = await client.post(
         REFRESH_URL,
@@ -104,7 +109,10 @@ async def test_logout_revokes_tokens(client: AsyncClient) -> None:
     )
 
     assert refresh_response.status_code == 401
-    assert refresh_response.json()["detail"] in {"Token has been revoked", "Invalid refresh token"}
+    assert refresh_response.json()["detail"] in {
+        "Token has been revoked",
+        "Invalid refresh token",
+    }
 
 
 @pytest.mark.anyio
@@ -143,7 +151,10 @@ async def test_admin_route_requires_admin_role(client: AsyncClient) -> None:
     )
 
     assert forbidden_response.status_code == 403
-    assert forbidden_response.json()["detail"] in {"Insufficient permissions", "User is inactive"}
+    assert forbidden_response.json()["detail"] in {
+        "Insufficient permissions",
+        "User is inactive",
+    }
 
 
 @pytest.mark.anyio

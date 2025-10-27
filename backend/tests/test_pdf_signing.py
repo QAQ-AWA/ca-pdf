@@ -13,7 +13,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.crud import certificate as certificate_crud
 from app.crud import seal as seal_crud
 from app.db.session import get_db
-from app.services.certificate_authority import CertificateAuthorityService, LeafKeyAlgorithm, RootKeyAlgorithm
+from app.services.certificate_authority import (
+    CertificateAuthorityService,
+    LeafKeyAlgorithm,
+    RootKeyAlgorithm,
+)
 from app.services.pdf_signing import (
     CertificateInvalidError,
     CertificateNotFoundError,
@@ -24,7 +28,10 @@ from app.services.pdf_signing import (
     SignatureMetadata,
     SignatureVisibility,
 )
-from app.services.pdf_verification import PDFVerificationInputError, PDFVerificationService
+from app.services.pdf_verification import (
+    PDFVerificationInputError,
+    PDFVerificationService,
+)
 from app.services.storage import EncryptedStorageService
 
 
@@ -73,7 +80,9 @@ async def verification_service() -> PDFVerificationService:
 
 
 @pytest.fixture
-async def root_ca(ca_service: CertificateAuthorityService, db_session: AsyncSession) -> None:
+async def root_ca(
+    ca_service: CertificateAuthorityService, db_session: AsyncSession
+) -> None:
     """Generate a root CA for testing."""
     await ca_service.generate_root_ca(
         session=db_session,
@@ -141,7 +150,9 @@ class TestPDFValidation:
         with pytest.raises(PDFValidationError, match="empty"):
             pdf_service._validate_pdf(b"")
 
-    async def test_validate_invalid_header(self, pdf_service: PDFSigningService) -> None:
+    async def test_validate_invalid_header(
+        self, pdf_service: PDFSigningService
+    ) -> None:
         """Test that invalid PDF headers are rejected."""
         with pytest.raises(PDFValidationError, match="header"):
             pdf_service._validate_pdf(b"Not a PDF file")
@@ -394,7 +405,9 @@ class TestPDFVerification:
             visibility=SignatureVisibility.INVISIBLE,
         )
 
-        report = await verification_service.verify_pdf(session=db_session, pdf_data=sign_result.signed_pdf)
+        report = await verification_service.verify_pdf(
+            session=db_session, pdf_data=sign_result.signed_pdf
+        )
 
         assert report.total_signatures == 1
         assert report.valid_signatures == 1
@@ -529,7 +542,9 @@ class TestAPIEndpoints:
 
         assert response.status_code == 400
 
-    async def test_batch_sign_endpoint_unauthenticated(self, client: AsyncClient) -> None:
+    async def test_batch_sign_endpoint_unauthenticated(
+        self, client: AsyncClient
+    ) -> None:
         """Test that unauthenticated batch requests are rejected."""
         pdf_data = create_minimal_pdf()
 
