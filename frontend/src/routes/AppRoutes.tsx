@@ -6,6 +6,8 @@ import { OverviewPage } from "../pages/dashboard/OverviewPage";
 import { SigningWorkspacePage } from "../pages/dashboard/SigningWorkspacePage";
 import { SettingsPage } from "../pages/dashboard/SettingsPage";
 import { AdminPage } from "../pages/dashboard/AdminPage";
+import { VerificationPage } from "../pages/dashboard/VerificationPage";
+import { AuditLogPage } from "../pages/dashboard/AuditLogPage";
 import { LoginPage } from "../pages/LoginPage";
 import { LogoutPage } from "../pages/LogoutPage";
 import { UnauthorizedPage } from "../pages/UnauthorizedPage";
@@ -26,7 +28,16 @@ export const AppRoutes = () => (
     >
       <Route index element={<OverviewPage />} />
       <Route path="signing" element={<SigningWorkspacePage />} />
+      <Route path="verification" element={<VerificationPage />} />
       <Route path="settings" element={<SettingsPage />} />
+      <Route
+        path="audit-logs"
+        element={
+          <ProtectedRoute requiredRoles={["admin"]}>
+            <AuditLogPage />
+          </ProtectedRoute>
+        }
+      />
       <Route
         path="admin"
         element={
