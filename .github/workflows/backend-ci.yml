@@ -32,29 +32,41 @@ jobs:
       ADMIN_ROLE: "admin"
       ENCRYPTED_STORAGE_ALGORITHM: "fernet"
       ENCRYPTED_STORAGE_MASTER_KEY: "L9oZbBY7bRHt9aCJloPAV9ooa-QKdfYU0uf5KIKGJ28="
-      POETRY_VIRTUALENVS_CREATE: "false"
       POETRY_NO_INTERACTION: "1"
+      POETRY_VIRTUALENVS_IN_PROJECT: "true"
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
 
-      - name: Set up Python 3.11
+      - name: Set up Python 3.11.7
+        id: setup-python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
-          cache: "poetry"
-          cache-dependency-path: backend/poetry.lock
+          python-version: "3.11.7"
 
-      - name: Install Poetry
-        uses: snok/install-poetry@v1
+      - name: Install Poetry with pipx
+        run: |
+          python -m pip install --user --upgrade pipx
+          python -m pipx ensurepath
+          export PATH="$HOME/.local/bin:$PATH"
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          python -m pipx install --force "poetry==1.8.3"
+          poetry config virtualenvs.in-project true
+
+      - name: Cache Poetry environment
+        uses: actions/cache@v4
         with:
-          version: "2.2.1"
-          virtualenvs-create: false
-          installer-parallel: true
+          path: |
+            ~/.cache/pypoetry
+            backend/.venv
+          key: poetry-${{ runner.os }}-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('backend/poetry.lock') }}
+          restore-keys: |
+            poetry-${{ runner.os }}-${{ steps.setup-python.outputs.python-version }}-
+            poetry-${{ runner.os }}-
 
       - name: Install backend dependencies
         working-directory: backend
-        run: poetry install --no-interaction --no-root
+        run: poetry install --no-interaction --no-ansi
 
       - name: Run formatters (black & isort)
         working-directory: backend
@@ -62,9 +74,13 @@ jobs:
           poetry run black --check app tests
           poetry run isort --check-only app tests
 
-      - name: Run Alembic migration check
+      - name: Run type checks (mypy)
         working-directory: backend
-        run: poetry run alembic check
+        run: poetry run mypy app tests
+
+      - name: Run Alembic migrations
+        working-directory: backend
+        run: poetry run alembic upgrade head
 
       - name: Run backend test suite with coverage
         working-directory: backend
