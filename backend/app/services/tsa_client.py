@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Protocol
 
 import requests
+from requests.auth import AuthBase
 from pyhanko.sign.timestamps import HTTPTimeStamper
 
 from app.core.config import settings
@@ -43,13 +44,15 @@ class TSAClient:
         username: str | None = None,
         password: str | None = None,
     ) -> None:
-        self.tsa_url = tsa_url or settings.tsa_url
-        self.username = username or settings.tsa_username
-        self.password = password or (settings.tsa_password.get_secret_value() if settings.tsa_password else None)
+        self.tsa_url: str | None = tsa_url or settings.tsa_url
+        self.username: str | None = username or settings.tsa_username
+        self.password: str | None = password or (
+            settings.tsa_password.get_secret_value() if settings.tsa_password else None
+        )
 
     def is_configured(self) -> bool:
         """Check if TSA is configured and available."""
-        return self.tsa_url is not None
+        return bool(self.tsa_url)
 
     def get_timestamper(self) -> HTTPTimeStamper | None:
         """Create and return a pyHanko HTTP timestamper instance."""

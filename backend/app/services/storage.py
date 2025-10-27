@@ -42,6 +42,9 @@ class EncryptedStorageService:
             content_type.lower() for content_type in settings.seal_image_allowed_content_types
         }
 
+        self._fernet: Fernet | None
+        self._aesgcm: AESGCM | None
+
         if self._algorithm is StorageEncryptionAlgorithm.FERNET:
             self._fernet = Fernet(self._master_key)
             self._aesgcm = None
@@ -109,7 +112,7 @@ class EncryptedStorageService:
                 actor_id=audit_actor_id,
                 event_type="seal.uploaded",
                 resource="seal",
-                metadata={
+                meta={
                     "file_id": str(file_metadata.id),
                     "secret_id": str(secret.id),
                     "content_type": normalized_type,

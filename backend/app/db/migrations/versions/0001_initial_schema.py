@@ -151,7 +151,7 @@ def upgrade() -> None:
         sa.Column("resource", sa.String(length=150), nullable=False),
         sa.Column("ip_address", sa.String(length=45), nullable=True),
         sa.Column("user_agent", sa.String(length=255), nullable=True),
-        sa.Column("metadata", sa.JSON(), nullable=True),
+        sa.Column("meta", sa.JSON(), nullable=True),
         sa.Column("message", sa.Text(), nullable=True),
         sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("CURRENT_TIMESTAMP"), nullable=False),
         sa.ForeignKeyConstraint(["actor_id"], ["users.id"], ondelete="SET NULL"),
