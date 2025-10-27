@@ -56,6 +56,9 @@ services:
     build:
       context: .
       dockerfile: backend/Dockerfile
+      args:
+        COMMIT_SHA: ${COMMIT_SHA:-local}
+        BUILD_VERSION: ${BUILD_VERSION:-dev}
     depends_on:
       db:
         condition: service_healthy
@@ -80,8 +83,11 @@ services:
       context: .
       dockerfile: frontend/Dockerfile
       args:
+        COMMIT_SHA: ${COMMIT_SHA:-local}
+        BUILD_VERSION: ${BUILD_VERSION:-dev}
         VITE_API_BASE_URL: ${VITE_API_BASE_URL:-https://api.localtest.me}
         VITE_APP_NAME: ${VITE_APP_NAME:-Monorepo UI}
+        VITE_PUBLIC_BASE_URL: ${VITE_PUBLIC_BASE_URL:-https://app.localtest.me}
     depends_on:
       backend:
         condition: service_healthy
@@ -95,7 +101,7 @@ services:
       - traefik.http.routers.frontend.rule=Host(`${FRONTEND_DOMAIN:-app.localtest.me}`)
       - traefik.http.routers.frontend.entrypoints=websecure
       - traefik.http.routers.frontend.tls.certresolver=le
-      - traefik.http.services.frontend.loadbalancer.server.port=80
+      - traefik.http.services.frontend.loadbalancer.server.port=8080
 
 networks:
   internal:

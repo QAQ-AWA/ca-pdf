@@ -80,6 +80,8 @@ Build the images and start all services:
 docker compose up -d --build
 ```
 
+The backend container listens on port 8000 and the frontend container exposes port 8080. Traefik continues to front the services and terminate TLS on 443 for external access.
+
 Once Traefik has obtained certificates you can access:
 
 - API: `https://${BACKEND_DOMAIN}/docs`
@@ -93,6 +95,43 @@ docker compose down
 ```
 
 Add `--volumes` if you want to reset persisted data: `docker compose down --volumes`.
+
+### Multi-architecture builds
+
+Both Dockerfiles are ready for Docker Buildx multi-platform builds. Ensure BuildKit is enabled and select a builder that supports `linux/amd64` and `linux/arm64`:
+
+```bash
+docker buildx create --name multiarch --use --bootstrap
+```
+
+Build and optionally push the backend image:
+
+```bash
+docker buildx build \
+  --platform linux/amd64,linux/arm64 \
+  --build-arg COMMIT_SHA=$(git rev-parse HEAD) \
+  --build-arg BUILD_VERSION=$(git describe --tags --always) \
+  -f backend/Dockerfile \
+  -t registry.example.com/backend:$(git rev-parse --short HEAD) \
+  .
+```
+
+Build the frontend image, passing along any Vite build arguments that your deployment requires:
+
+```bash
+docker buildx build \
+  --platform linux/amd64,linux/arm64 \
+  --build-arg COMMIT_SHA=$(git rev-parse HEAD) \
+  --build-arg BUILD_VERSION=$(git describe --tags --always) \
+  --build-arg VITE_API_BASE_URL=${VITE_API_BASE_URL:-https://api.example.com} \
+  --build-arg VITE_APP_NAME="${VITE_APP_NAME:-Monorepo UI}" \
+  --build-arg VITE_PUBLIC_BASE_URL=${VITE_PUBLIC_BASE_URL:-https://app.example.com} \
+  -f frontend/Dockerfile \
+  -t registry.example.com/frontend:$(git rev-parse --short HEAD) \
+  .
+```
+
+Use `--push` with either command to publish directly to your registry. When building locally without pushing, omit the flag to load the images into your Docker daemon.
 
 ### Data persistence
 
@@ -129,8 +168,8 @@ Each secret is optional; omit the corresponding flag if you do not rely on priva
 
 ### Health checks
 
-- Backend exposes `GET /health` and is polled by Docker for readiness.
-- Frontend serves `GET /healthz` from Nginx.
+- Backend exposes `GET /health` on port 8000 and is polled by Docker for readiness.
+- Frontend serves `GET /healthz` from Nginx on port 8080 inside the container.
 - PostgreSQL and Traefik include native health checks.
 
 These checks allow Compose to coordinate startup ordering for dependable local development.
