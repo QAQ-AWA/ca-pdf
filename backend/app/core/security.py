@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
-from typing import Literal
+from typing import Any, Literal, cast
 from uuid import uuid4
 
 from jose import JWTError, jwt
@@ -23,13 +23,15 @@ class InvalidTokenError(Exception):
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     """Return True if the provided password matches the stored hash."""
 
-    return pwd_context.verify(plain_password, hashed_password)
+    verified = pwd_context.verify(plain_password, hashed_password)
+    return bool(verified)
 
 
 def get_password_hash(password: str) -> str:
     """Hash a plaintext password using bcrypt."""
 
-    return pwd_context.hash(password)
+    hashed = pwd_context.hash(password)
+    return cast(str, hashed)
 
 
 def _create_token(*, subject: str, role: str, token_type: TokenType, expires_delta: timedelta) -> str:
@@ -41,7 +43,12 @@ def _create_token(*, subject: str, role: str, token_type: TokenType, expires_del
         "role": role,
         "jti": str(uuid4()),
     }
-    return jwt.encode(to_encode, settings.secret_key, algorithm=settings.jwt_algorithm)
+    token = jwt.encode(
+        to_encode,
+        settings.secret_key,
+        algorithm=settings.jwt_algorithm,
+    )
+    return cast(str, token)
 
 
 def create_access_token(*, subject: str, role: str) -> str:
@@ -62,9 +69,11 @@ def decode_token(token: str) -> TokenPayload:
     """Decode a JWT and return its payload if valid."""
 
     try:
-        payload = jwt.decode(token, settings.secret_key, algorithms=[settings.jwt_algorithm])
+        raw_payload = jwt.decode(token, settings.secret_key, algorithms=[settings.jwt_algorithm])
     except JWTError as exc:  # pragma: no cover - protective branch
         raise InvalidTokenError("Token decode failed") from exc
+
+    payload = cast(dict[str, Any], raw_payload)
 
     try:
         return TokenPayload(**payload)

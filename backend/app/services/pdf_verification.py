@@ -164,7 +164,11 @@ class PDFVerificationService:
         if signer_cert is not None:
             try:
                 subject = signer_cert.subject.native
-                signer_common_name = subject.get("common_name")
+                raw_common_name = subject.get("common_name")
+                if isinstance(raw_common_name, str):
+                    signer_common_name = raw_common_name
+                elif raw_common_name is not None:
+                    signer_common_name = str(raw_common_name)
             except Exception:  # pragma: no cover - defensive branch
                 signer_common_name = None
             try:
@@ -179,7 +183,11 @@ class PDFVerificationService:
         if isinstance(timestamp_status, TimestampSignatureStatus):
             timestamp_trusted = bool(timestamp_status.trusted)
             timestamp_time = timestamp_status.timestamp
-            timestamp_summary = timestamp_status.summary
+            raw_timestamp_summary = timestamp_status.summary
+            if callable(raw_timestamp_summary):
+                timestamp_summary = str(raw_timestamp_summary())
+            elif raw_timestamp_summary is not None:
+                timestamp_summary = str(raw_timestamp_summary)
 
         modification_level: str | None = None
         if isinstance(status.modification_level, ModificationLevel):
@@ -187,16 +195,32 @@ class PDFVerificationService:
         elif status.modification_level is not None:
             modification_level = str(status.modification_level)
 
+        raw_summary = status.summary
+        summary_text = ""
+        if callable(raw_summary):
+            summary_text = str(raw_summary())
+        elif raw_summary is not None:
+            summary_text = str(raw_summary)
+
+        docmdp_value = status.docmdp_ok
+        docmdp_ok: bool | None
+        if docmdp_value is None:
+            docmdp_ok = None
+        else:
+            docmdp_ok = bool(docmdp_value)
+
+        field_name = embedded_signature.field_name or ""
+
         return SignatureVerificationDetails(
-            field_name=embedded_signature.field_name,
+            field_name=field_name,
             valid=bool(status.valid),
             trusted=bool(status.trusted),
-            docmdp_ok=status.docmdp_ok,
+            docmdp_ok=docmdp_ok,
             modification_level=modification_level,
             signing_time=status.signer_reported_dt,
             signer_common_name=signer_common_name,
             signer_serial_number=signer_serial,
-            summary=status.summary,
+            summary=summary_text,
             timestamp_trusted=timestamp_trusted,
             timestamp_time=timestamp_time,
             timestamp_summary=timestamp_summary,
@@ -212,7 +236,7 @@ class PDFVerificationService:
         """Return a structured error result when validation fails unexpectedly."""
 
         return SignatureVerificationDetails(
-            field_name=embedded_signature.field_name,
+            field_name=embedded_signature.field_name or "",
             valid=False,
             trusted=False,
             docmdp_ok=None,
