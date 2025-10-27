@@ -18,9 +18,6 @@ from app.db.session import get_db
 from app.models.certificate import Certificate, CertificateStatus
 from app.models.user import User, UserRole
 from app.schemas.ca import (
-    CRLGenerateResponse,
-    CRLListResponse,
-    CRLMetadata,
     CertificateImportRequest,
     CertificateImportResponse,
     CertificateIssueRequest,
@@ -28,6 +25,9 @@ from app.schemas.ca import (
     CertificateListResponse,
     CertificateRevokeResponse,
     CertificateSummary,
+    CRLGenerateResponse,
+    CRLListResponse,
+    CRLMetadata,
     RootCACreateRequest,
     RootCAResponse,
     RootCertificateExportResponse,
@@ -46,7 +46,9 @@ router = APIRouter(prefix="/ca", tags=["certificate-authority"])
 ca_service = CertificateAuthorityService()
 
 
-@router.post("/root", response_model=RootCAResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/root", response_model=RootCAResponse, status_code=status.HTTP_201_CREATED
+)
 async def generate_root_ca(
     payload: RootCACreateRequest,
     current_user: User = Depends(require_roles(UserRole.ADMIN)),
@@ -64,9 +66,13 @@ async def generate_root_ca(
             validity_days=payload.validity_days,
         )
     except RootCAAlreadyExistsError as exc:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail=str(exc)
+        ) from exc
     except CertificateAuthorityError as exc:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)
+        ) from exc
 
     fingerprint = result.certificate.fingerprint(hashes.SHA256()).hex().upper()
     serial_hex = f"{result.certificate.serial_number:x}".upper()
@@ -85,13 +91,17 @@ async def generate_root_ca(
 
 
 @router.get("/root/certificate", response_model=RootCertificateExportResponse)
-async def export_root_certificate(session: AsyncSession = Depends(get_db)) -> RootCertificateExportResponse:
+async def export_root_certificate(
+    session: AsyncSession = Depends(get_db),
+) -> RootCertificateExportResponse:
     """Return the PEM encoded root certificate."""
 
     try:
         certificate_pem = await ca_service.export_root_certificate(session=session)
     except RootCANotFoundError as exc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)
+        ) from exc
 
     return RootCertificateExportResponse(certificate_pem=certificate_pem)
 
@@ -116,11 +126,17 @@ async def issue_certificate(
             actor_id=current_user.id,
         )
     except RootCANotFoundError as exc:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail=str(exc)
+        ) from exc
     except CertificateIssuanceError as exc:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)
+        ) from exc
     except CertificateAuthorityError as exc:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)
+        ) from exc
 
     encoded_bundle = base64.b64encode(result.p12_bytes).decode("utf-8")
     status_enum = CertificateStatus(result.certificate.status)
@@ -147,7 +163,10 @@ async def import_certificate(
     try:
         bundle_bytes = base64.b64decode(payload.p12_bundle, validate=True)
     except binascii.Error as exc:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid PKCS#12 bundle encoding") from exc
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid PKCS#12 bundle encoding",
+        ) from exc
 
     try:
         result = await ca_service.import_certificate_from_p12(
@@ -158,9 +177,13 @@ async def import_certificate(
             actor_id=current_user.id,
         )
     except CertificateImportError as exc:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)
+        ) from exc
     except CertificateAuthorityError as exc:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)
+        ) from exc
 
     status_enum = CertificateStatus(result.certificate.status)
 
@@ -200,7 +223,9 @@ async def list_certificates(
     return CertificateListResponse(certificates=summaries)
 
 
-@router.post("/certificates/{certificate_id}/revoke", response_model=CertificateRevokeResponse)
+@router.post(
+    "/certificates/{certificate_id}/revoke", response_model=CertificateRevokeResponse
+)
 async def revoke_certificate(
     certificate_id: UUID,
     current_user: User = Depends(require_roles(UserRole.ADMIN)),
@@ -208,7 +233,9 @@ async def revoke_certificate(
 ) -> CertificateRevokeResponse:
     """Revoke a certificate by identifier."""
 
-    certificate = await _load_certificate_or_404(session=session, certificate_id=certificate_id)
+    certificate = await _load_certificate_or_404(
+        session=session, certificate_id=certificate_id
+    )
 
     try:
         revoked = await ca_service.revoke_certificate(
@@ -217,7 +244,9 @@ async def revoke_certificate(
             actor_id=current_user.id,
         )
     except CertificateRevocationError as exc:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)
+        ) from exc
 
     status_enum = CertificateStatus(revoked.status)
     revoked_at = revoked.updated_at
@@ -237,9 +266,13 @@ async def generate_crl(
     """Generate a new certificate revocation list."""
 
     try:
-        result = await ca_service.generate_crl(session=session, actor_id=current_user.id)
+        result = await ca_service.generate_crl(
+            session=session, actor_id=current_user.id
+        )
     except CertificateAuthorityError as exc:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)
+        ) from exc
 
     return CRLGenerateResponse(
         artifact_id=result.artifact.id,
@@ -267,13 +300,19 @@ async def list_crls(session: AsyncSession = Depends(get_db)) -> CRLListResponse:
 
 
 @router.get("/crl/{artifact_id}", response_class=PlainTextResponse)
-async def download_crl(artifact_id: UUID, session: AsyncSession = Depends(get_db)) -> PlainTextResponse:
+async def download_crl(
+    artifact_id: UUID, session: AsyncSession = Depends(get_db)
+) -> PlainTextResponse:
     """Download the specified certificate revocation list."""
 
     try:
-        crl_pem = await ca_service.load_crl_pem(session=session, artifact_id=artifact_id)
+        crl_pem = await ca_service.load_crl_pem(
+            session=session, artifact_id=artifact_id
+        )
     except CertificateAuthorityError as exc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)
+        ) from exc
 
     return PlainTextResponse(content=crl_pem, media_type="application/pkix-crl")
 
@@ -284,8 +323,14 @@ def _ensure_utc(dt: datetime) -> datetime:
     return dt.astimezone(timezone.utc)
 
 
-async def _load_certificate_or_404(*, session: AsyncSession, certificate_id: UUID) -> Certificate:
-    certificate = await certificate_crud.get_certificate_by_id(session=session, certificate_id=certificate_id)
+async def _load_certificate_or_404(
+    *, session: AsyncSession, certificate_id: UUID
+) -> Certificate:
+    certificate = await certificate_crud.get_certificate_by_id(
+        session=session, certificate_id=certificate_id
+    )
     if certificate is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Certificate not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Certificate not found"
+        )
     return certificate

@@ -39,7 +39,8 @@ class EncryptedStorageService:
         self._private_key_max_bytes = settings.private_key_max_bytes
         self._seal_image_max_bytes = settings.seal_image_max_bytes
         self._allowed_image_content_types = {
-            content_type.lower() for content_type in settings.seal_image_allowed_content_types
+            content_type.lower()
+            for content_type in settings.seal_image_allowed_content_types
         }
 
         if self._algorithm is StorageEncryptionAlgorithm.FERNET:
@@ -157,7 +158,9 @@ class EncryptedStorageService:
         try:
             return payload.decode("utf-8")
         except UnicodeDecodeError as exc:
-            raise StorageCorruptionError("Stored private key payload is not valid UTF-8") from exc
+            raise StorageCorruptionError(
+                "Stored private key payload is not valid UTF-8"
+            ) from exc
 
     async def load_file_bytes(self, session: AsyncSession, file_id: UUID) -> bytes:
         file_metadata = await session.get(FileMetadata, file_id)
@@ -173,7 +176,9 @@ class EncryptedStorageService:
         try:
             return payload.decode("utf-8")
         except UnicodeDecodeError as exc:
-            raise StorageCorruptionError("Stored certificate payload is not valid UTF-8") from exc
+            raise StorageCorruptionError(
+                "Stored certificate payload is not valid UTF-8"
+            ) from exc
 
     async def load_seal_image(self, session: AsyncSession, secret_id: UUID) -> bytes:
         return await self.retrieve_secret(session, secret_id)
@@ -239,17 +244,23 @@ class EncryptedStorageService:
             try:
                 return self._fernet.decrypt(secret.ciphertext)
             except InvalidToken as exc:
-                raise StorageCorruptionError("Unable to decrypt payload with Fernet key") from exc
+                raise StorageCorruptionError(
+                    "Unable to decrypt payload with Fernet key"
+                ) from exc
 
         if secret.nonce is None or secret.tag is None:
-            raise StorageCorruptionError("AES-GCM secret is missing nonce or authentication tag")
+            raise StorageCorruptionError(
+                "AES-GCM secret is missing nonce or authentication tag"
+            )
         if self._aesgcm is None:
             raise StorageCorruptionError("AES-GCM master key is unavailable")
         combined = secret.ciphertext + secret.tag
         try:
             return self._aesgcm.decrypt(secret.nonce, combined, associated_data=None)
         except Exception as exc:  # pragma: no cover - defensive branch
-            raise StorageCorruptionError("Unable to decrypt payload with AES-GCM key") from exc
+            raise StorageCorruptionError(
+                "Unable to decrypt payload with AES-GCM key"
+            ) from exc
 
     def _validate_private_key(self, payload: bytes) -> None:
         if len(payload) > self._private_key_max_bytes:
@@ -257,9 +268,14 @@ class EncryptedStorageService:
         try:
             text = payload.decode("utf-8")
         except UnicodeDecodeError as exc:
-            raise StorageValidationError("Private key must be valid UTF-8 text") from exc
+            raise StorageValidationError(
+                "Private key must be valid UTF-8 text"
+            ) from exc
         normalized = text.strip()
-        if not (normalized.startswith("-----BEGIN") and normalized.endswith("END PRIVATE KEY-----")):
+        if not (
+            normalized.startswith("-----BEGIN")
+            and normalized.endswith("END PRIVATE KEY-----")
+        ):
             raise StorageValidationError("Private key must be PEM encoded")
 
     def _validate_seal_image(self, payload: bytes, content_type: str) -> None:
@@ -267,7 +283,9 @@ class EncryptedStorageService:
             raise StorageValidationError("Seal image exceeds configured size limit")
         if content_type not in self._allowed_image_content_types:
             allowed = ", ".join(sorted(self._allowed_image_content_types)) or "none"
-            raise StorageValidationError(f"Seal image content type '{content_type}' is not allowed (allowed: {allowed})")
+            raise StorageValidationError(
+                f"Seal image content type '{content_type}' is not allowed (allowed: {allowed})"
+            )
         if content_type == "image/png" and not payload.startswith(b"\x89PNG\r\n\x1a\n"):
             raise StorageValidationError("PNG signature mismatch")
         if content_type == "image/svg+xml":
@@ -276,7 +294,9 @@ class EncryptedStorageService:
             except UnicodeDecodeError as exc:
                 raise StorageValidationError("SVG content must be UTF-8 text") from exc
             if "<svg" not in text.lower():
-                raise StorageValidationError("SVG payload is missing <svg> root element")
+                raise StorageValidationError(
+                    "SVG payload is missing <svg> root element"
+                )
 
     @staticmethod
     def allowed_image_types() -> Iterable[str]:

@@ -17,11 +17,15 @@ router = APIRouter(prefix="/audit", tags=["audit"])
 @router.get("/logs", response_model=AuditLogListResponse)
 async def list_audit_logs(
     *,
-    limit: int = Query(default=50, ge=1, le=200, description="Maximum number of entries to return"),
+    limit: int = Query(
+        default=50, ge=1, le=200, description="Maximum number of entries to return"
+    ),
     offset: int = Query(default=0, ge=0, description="Number of entries to skip"),
     event_type: str | None = Query(default=None, description="Filter by event type"),
     resource: str | None = Query(default=None, description="Filter by resource name"),
-    actor_id: int | None = Query(default=None, description="Filter by actor identifier"),
+    actor_id: int | None = Query(
+        default=None, description="Filter by actor identifier"
+    ),
     _: User = Depends(require_roles(UserRole.ADMIN)),
     session: AsyncSession = Depends(get_db),
 ) -> AuditLogListResponse:

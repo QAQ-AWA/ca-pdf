@@ -29,16 +29,24 @@ class SignatureCoordinates(BaseModel):
 class SignatureMetadata(BaseModel):
     """Optional metadata for signatures."""
 
-    reason: str | None = Field(default=None, max_length=256, description="Reason for signing")
-    location: str | None = Field(default=None, max_length=256, description="Location of signing")
-    contact_info: str | None = Field(default=None, max_length=256, description="Contact information")
+    reason: str | None = Field(
+        default=None, max_length=256, description="Reason for signing"
+    )
+    location: str | None = Field(
+        default=None, max_length=256, description="Location of signing"
+    )
+    contact_info: str | None = Field(
+        default=None, max_length=256, description="Contact information"
+    )
 
 
 class PDFSignRequest(BaseModel):
     """Request payload for signing a single PDF document."""
 
     certificate_id: UUID = Field(description="Certificate to use for signing")
-    seal_id: UUID | None = Field(default=None, description="Optional seal image to embed")
+    seal_id: UUID | None = Field(
+        default=None, description="Optional seal image to embed"
+    )
     visibility: SignatureVisibility = Field(default=SignatureVisibility.INVISIBLE)
     coordinates: SignatureCoordinates | None = Field(
         default=None,
@@ -46,7 +54,9 @@ class PDFSignRequest(BaseModel):
     )
     metadata: SignatureMetadata | None = Field(default=None)
     use_tsa: bool = Field(default=False, description="Include RFC3161 timestamp")
-    embed_ltv: bool = Field(default=False, description="Embed validation material for LTV")
+    embed_ltv: bool = Field(
+        default=False, description="Embed validation material for LTV"
+    )
 
 
 class PDFSignResponse(BaseModel):
@@ -65,8 +75,12 @@ class PDFSignResponse(BaseModel):
 class PDFBatchSignRequest(BaseModel):
     """Request payload for batch signing multiple PDF documents."""
 
-    certificate_id: UUID = Field(description="Certificate to use for signing all documents")
-    seal_id: UUID | None = Field(default=None, description="Optional seal image to embed")
+    certificate_id: UUID = Field(
+        description="Certificate to use for signing all documents"
+    )
+    seal_id: UUID | None = Field(
+        default=None, description="Optional seal image to embed"
+    )
     visibility: SignatureVisibility = Field(default=SignatureVisibility.INVISIBLE)
     coordinates: SignatureCoordinates | None = Field(
         default=None,
@@ -74,7 +88,9 @@ class PDFBatchSignRequest(BaseModel):
     )
     metadata: SignatureMetadata | None = Field(default=None)
     use_tsa: bool = Field(default=False, description="Include RFC3161 timestamp")
-    embed_ltv: bool = Field(default=False, description="Embed validation material for LTV")
+    embed_ltv: bool = Field(
+        default=False, description="Embed validation material for LTV"
+    )
 
 
 class PDFBatchSignResultItem(BaseModel):
@@ -108,7 +124,9 @@ class SignatureVerificationResult(BaseModel):
     field_name: str = Field(description="Name of the signature field")
     valid: bool = Field(description="Whether the signature is cryptographically valid")
     trusted: bool = Field(description="Whether the signature chain is trusted")
-    docmdp_ok: bool | None = Field(default=None, description="Whether document modifications are permitted")
+    docmdp_ok: bool | None = Field(
+        default=None, description="Whether document modifications are permitted"
+    )
     modification_level: str | None = Field(
         default=None,
         description="Permitted modification level detected for the document",
@@ -117,9 +135,15 @@ class SignatureVerificationResult(BaseModel):
         default=None,
         description="Signing time reported by the signer, if available",
     )
-    signer_common_name: str | None = Field(default=None, description="Common name from the signer certificate")
-    signer_serial_number: str | None = Field(default=None, description="Serial number of the signer certificate")
-    summary: str = Field(description="Human-readable summary of the verification result")
+    signer_common_name: str | None = Field(
+        default=None, description="Common name from the signer certificate"
+    )
+    signer_serial_number: str | None = Field(
+        default=None, description="Serial number of the signer certificate"
+    )
+    summary: str = Field(
+        description="Human-readable summary of the verification result"
+    )
     timestamp_trusted: bool | None = Field(
         default=None,
         description="Whether the associated timestamp token is trusted",
@@ -132,7 +156,9 @@ class SignatureVerificationResult(BaseModel):
         default=None,
         description="Summary describing the timestamp validation",
     )
-    error: str | None = Field(default=None, description="Error message recorded during validation, if any")
+    error: str | None = Field(
+        default=None, description="Error message recorded during validation, if any"
+    )
 
 
 class PDFVerificationResponse(BaseModel):
@@ -140,9 +166,13 @@ class PDFVerificationResponse(BaseModel):
 
     total_signatures: int = Field(description="Total number of signatures detected")
     valid_signatures: int = Field(description="Number of signatures that are valid")
-    trusted_signatures: int = Field(description="Number of signatures that chain to a trusted root")
+    trusted_signatures: int = Field(
+        description="Number of signatures that chain to a trusted root"
+    )
     all_signatures_valid: bool = Field(description="Whether all signatures are valid")
-    all_signatures_trusted: bool = Field(description="Whether all signatures are trusted")
+    all_signatures_trusted: bool = Field(
+        description="Whether all signatures are trusted"
+    )
     signatures: list[SignatureVerificationResult] = Field(
         description="Per-signature verification details"
     )
