@@ -93,7 +93,7 @@ async def _record_audit_event(
     actor_id: int,
     event_type: str,
     resource: str,
-    metadata: dict[str, Any] | None = None,
+    meta: dict[str, Any] | None = None,
 ) -> None:
     """Persist an audit event capturing request metadata."""
 
@@ -102,7 +102,7 @@ async def _record_audit_event(
         actor_id=actor_id,
         event_type=event_type,
         resource=resource,
-        metadata=metadata,
+        meta=meta,
         ip_address=_extract_client_ip(request),
         user_agent=request.headers.get("user-agent"),
         commit=True,
@@ -226,7 +226,7 @@ async def sign_pdf(
         actor_id=current_user.id,
         event_type="pdf.signature.applied",
         resource="pdf",
-        metadata={
+        meta={
             "document_id": result.document_id,
             "certificate_id": str(result.certificate_id),
             "seal_id": str(result.seal_id) if result.seal_id else None,
@@ -415,7 +415,7 @@ async def batch_sign_pdfs(
         actor_id=current_user.id,
         event_type="pdf.signature.batch_applied",
         resource="pdf",
-        metadata={
+        meta={
             "total": len(pdfs),
             "successful": successful,
             "failed": failed,
@@ -500,7 +500,7 @@ async def verify_pdf(
         actor_id=current_user.id,
         event_type="pdf.signature.verified",
         resource="pdf",
-        metadata={
+        meta={
             "total_signatures": report.total_signatures,
             "valid_signatures": report.valid_signatures,
             "trusted_signatures": report.trusted_signatures,

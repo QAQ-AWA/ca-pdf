@@ -5,6 +5,7 @@ from __future__ import annotations
 from uuid import UUID
 
 from sqlalchemy import Select, select
+from sqlalchemy.engine import Result, ScalarResult
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -18,7 +19,7 @@ async def get_latest_artifact_by_type(
 ) -> CAArtifact | None:
     """Return the most recently created artifact for the supplied type."""
 
-    statement: Select[CAArtifact] = (
+    statement: Select[tuple[CAArtifact]] = (
         select(CAArtifact)
         .where(CAArtifact.artifact_type == artifact_type.value)
         .order_by(CAArtifact.created_at.desc())
@@ -28,7 +29,7 @@ async def get_latest_artifact_by_type(
             selectinload(CAArtifact.secret),
         )
     )
-    result = await session.execute(statement)
+    result: Result[tuple[CAArtifact]] = await session.execute(statement)
     return result.scalar_one_or_none()
 
 
@@ -67,20 +68,21 @@ async def list_artifacts(
 ) -> list[CAArtifact]:
     """Return artifacts ordered from newest to oldest."""
 
-    statement: Select[CAArtifact] = select(CAArtifact).order_by(CAArtifact.created_at.desc())
+    statement: Select[tuple[CAArtifact]] = select(CAArtifact).order_by(CAArtifact.created_at.desc())
     if artifact_type is not None:
         statement = statement.where(CAArtifact.artifact_type == artifact_type.value)
     if limit is not None:
         statement = statement.limit(limit)
     statement = statement.options(selectinload(CAArtifact.file))
-    result = await session.execute(statement)
-    return list(result.scalars().all())
+    result: Result[tuple[CAArtifact]] = await session.execute(statement)
+    scalars: ScalarResult[CAArtifact] = result.scalars()
+    return list(scalars.all())
 
 
 async def get_artifact_by_id(*, session: AsyncSession, artifact_id: UUID) -> CAArtifact | None:
     """Retrieve a certificate authority artifact by its identifier."""
 
-    statement: Select[CAArtifact] = (
+    statement: Select[tuple[CAArtifact]] = (
         select(CAArtifact)
         .where(CAArtifact.id == artifact_id)
         .options(
@@ -88,5 +90,5 @@ async def get_artifact_by_id(*, session: AsyncSession, artifact_id: UUID) -> CAA
             selectinload(CAArtifact.secret),
         )
     )
-    result = await session.execute(statement)
+    result: Result[tuple[CAArtifact]] = await session.execute(statement)
     return result.scalar_one_or_none()

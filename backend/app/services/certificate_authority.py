@@ -222,7 +222,7 @@ class CertificateAuthorityService:
             actor_id=actor_id,
             event_type="ca.root.created",
             resource="root-ca",
-            metadata={
+            meta={
                 "artifact_id": str(artifact.id),
                 "algorithm": algorithm.value,
                 "serial_number": serial_hex,
@@ -372,7 +372,7 @@ class CertificateAuthorityService:
             actor_id=actor_id,
             event_type="ca.certificate.issued",
             resource="certificate",
-            metadata={
+            meta={
                 "certificate_id": str(certificate_record.id),
                 "owner_id": owner_id,
                 "serial_number": serial_hex,
@@ -464,7 +464,7 @@ class CertificateAuthorityService:
             actor_id=actor_id,
             event_type="ca.certificate.imported",
             resource="certificate",
-            metadata={
+            meta={
                 "certificate_id": str(certificate_record.id),
                 "owner_id": owner_id,
                 "serial_number": serial_hex,
@@ -501,7 +501,7 @@ class CertificateAuthorityService:
             actor_id=actor_id,
             event_type="ca.certificate.revoked",
             resource="certificate",
-            metadata={
+            meta={
                 "certificate_id": str(certificate.id),
                 "serial_number": certificate.serial_number,
             },
@@ -576,7 +576,7 @@ class CertificateAuthorityService:
             actor_id=actor_id,
             event_type="ca.crl.generated",
             resource="crl",
-            metadata={
+            meta={
                 "artifact_id": str(artifact.id),
                 "revoked_serials": revoked_serials,
             },
