@@ -8,6 +8,8 @@ import { useTheme } from "../ThemeProvider";
 const navigationLinks = [
   { to: "/", label: "Overview" },
   { to: "/signing", label: "Signing" },
+  { to: "/verification", label: "Verification" },
+  { to: "/audit-logs", label: "Audit log", roles: ["admin"] as string[] },
   { to: "/settings", label: "Settings" },
   { to: "/admin", label: "Admin", roles: ["admin"] as string[] },
 ];
