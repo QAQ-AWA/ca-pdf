@@ -14,13 +14,17 @@ from pyhanko.pdf_utils.reader import PdfFileReader
 from pyhanko.sign.validation import validate_pdf_signature
 from pyhanko.sign.validation.errors import SignatureValidationError
 from pyhanko.sign.validation.pdf_embedded import EmbeddedPdfSignature
-from pyhanko.sign.validation.status import ModificationLevel, PdfSignatureStatus, TimestampSignatureStatus
+from pyhanko.sign.validation.status import (
+    ModificationLevel,
+    PdfSignatureStatus,
+    TimestampSignatureStatus,
+)
 from pyhanko_certvalidator.context import ValidationContext
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.services.certificate_authority import (
-    CertificateAuthorityService,
     CertificateAuthorityError,
+    CertificateAuthorityService,
     RootCANotFoundError,
 )
 
@@ -72,7 +76,9 @@ class PDFVerificationService:
     def __init__(self, ca_service: CertificateAuthorityService | None = None) -> None:
         self._ca_service = ca_service or CertificateAuthorityService()
 
-    async def verify_pdf(self, *, session: AsyncSession, pdf_data: bytes) -> PDFVerificationReport:
+    async def verify_pdf(
+        self, *, session: AsyncSession, pdf_data: bytes
+    ) -> PDFVerificationReport:
         """Validate signatures embedded in the supplied PDF payload."""
 
         if not pdf_data:
@@ -83,7 +89,9 @@ class PDFVerificationService:
         try:
             reader = PdfFileReader(io.BytesIO(pdf_data))
         except Exception as exc:  # pragma: no cover - defensive branch
-            raise PDFVerificationInputError(f"Unable to parse PDF document: {exc}") from exc
+            raise PDFVerificationInputError(
+                f"Unable to parse PDF document: {exc}"
+            ) from exc
 
         signatures = list(reader.embedded_signatures)
         if not signatures:
@@ -113,21 +121,31 @@ class PDFVerificationService:
             signatures=reports,
         )
 
-    async def _load_trust_roots(self, *, session: AsyncSession) -> Sequence[asn1_x509.Certificate]:
+    async def _load_trust_roots(
+        self, *, session: AsyncSession
+    ) -> Sequence[asn1_x509.Certificate]:
         """Return ASN.1 certificates that should be trusted for chain validation."""
 
         try:
             root_pem = await self._ca_service.export_root_certificate(session=session)
         except RootCANotFoundError as exc:
-            raise PDFVerificationRootCAError("Root certificate authority has not been generated") from exc
+            raise PDFVerificationRootCAError(
+                "Root certificate authority has not been generated"
+            ) from exc
         except CertificateAuthorityError as exc:
-            raise PDFVerificationRootCAError(f"Unable to load root certificate: {exc}") from exc
+            raise PDFVerificationRootCAError(
+                f"Unable to load root certificate: {exc}"
+            ) from exc
 
         try:
             root_cert = x509.load_pem_x509_certificate(root_pem.encode("utf-8"))
-            root_asn1 = asn1_x509.Certificate.load(root_cert.public_bytes(serialization.Encoding.DER))
+            root_asn1 = asn1_x509.Certificate.load(
+                root_cert.public_bytes(serialization.Encoding.DER)
+            )
         except Exception as exc:  # pragma: no cover - defensive branch
-            raise PDFVerificationRootCAError("Stored root certificate is invalid") from exc
+            raise PDFVerificationRootCAError(
+                "Stored root certificate is invalid"
+            ) from exc
 
         return (root_asn1,)
 
