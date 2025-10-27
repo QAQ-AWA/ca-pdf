@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from enum import Enum
-from typing import Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 from uuid import UUID, uuid4
 
 from sqlalchemy import DateTime, ForeignKey, Integer, String, Text, Uuid
@@ -31,13 +31,17 @@ class Certificate(Base):
     __tablename__ = "certificates"
 
     id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
-    owner_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("users.id", ondelete="SET NULL"))
+    owner_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("users.id", ondelete="SET NULL")
+    )
     serial_number: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
     subject_common_name: Mapped[str] = mapped_column(String(255), nullable=False)
     subject_organization: Mapped[str | None] = mapped_column(String(255), nullable=True)
     issued_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
-    status: Mapped[str] = mapped_column(String(20), nullable=False, default=CertificateStatus.ACTIVE.value)
+    status: Mapped[str] = mapped_column(
+        String(20), nullable=False, default=CertificateStatus.ACTIVE.value
+    )
     certificate_pem: Mapped[str] = mapped_column(Text, nullable=False)
     certificate_file_id: Mapped[UUID | None] = mapped_column(
         Uuid,
