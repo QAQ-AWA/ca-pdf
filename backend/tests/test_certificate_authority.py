@@ -100,7 +100,9 @@ async def test_issue_certificate_returns_valid_pkcs12_bundle(client: AsyncClient
 
     session_factory = get_session_factory()
     async with session_factory() as session:
-        stored = await certificate_crud.get_certificate_by_serial(session=session, serial_number=payload["serial_number"])
+        stored = await certificate_crud.get_certificate_by_serial(
+            session=session, serial_number=payload["serial_number"]
+        )
     assert stored is not None
     assert stored.owner_id == user.id
 
@@ -120,7 +122,10 @@ async def test_import_certificate_from_pkcs12_bundle(client: AsyncClient) -> Non
     import_response = await client.post(
         CERT_IMPORT_URL,
         headers={"Authorization": f"Bearer {user_token}"},
-        json={"p12_bundle": base64.b64encode(bundle_bytes).decode("utf-8"), "passphrase": "import-pass"},
+        json={
+            "p12_bundle": base64.b64encode(bundle_bytes).decode("utf-8"),
+            "passphrase": "import-pass",
+        },
     )
     assert import_response.status_code == 200
     data = import_response.json()
@@ -129,7 +134,9 @@ async def test_import_certificate_from_pkcs12_bundle(client: AsyncClient) -> Non
 
     session_factory = get_session_factory()
     async with session_factory() as session:
-        imported = await certificate_crud.get_certificate_by_serial(session=session, serial_number=serial_hex)
+        imported = await certificate_crud.get_certificate_by_serial(
+            session=session, serial_number=serial_hex
+        )
     assert imported is not None
 
     list_response = await client.get(
@@ -137,7 +144,9 @@ async def test_import_certificate_from_pkcs12_bundle(client: AsyncClient) -> Non
         headers={"Authorization": f"Bearer {user_token}"},
     )
     assert list_response.status_code == 200
-    listed_serials = {item["serial_number"].upper() for item in list_response.json()["certificates"]}
+    listed_serials = {
+        item["serial_number"].upper() for item in list_response.json()["certificates"]
+    }
     assert serial_hex in listed_serials
 
 
@@ -170,7 +179,9 @@ async def test_revoke_certificate_and_generate_crl(client: AsyncClient) -> None:
 
     session_factory = get_session_factory()
     async with session_factory() as session:
-        revoked_record = await certificate_crud.get_certificate_by_serial(session=session, serial_number=serial_number)
+        revoked_record = await certificate_crud.get_certificate_by_serial(
+            session=session, serial_number=serial_number
+        )
     assert revoked_record is not None
     assert revoked_record.status == CertificateStatus.REVOKED.value
 
@@ -187,7 +198,9 @@ async def test_revoke_certificate_and_generate_crl(client: AsyncClient) -> None:
     crl_entries = list_response.json()["crls"]
     assert any(entry["artifact_id"] == crl_payload["artifact_id"] for entry in crl_entries)
 
-    download_response = await client.get(CRL_DOWNLOAD_URL.format(artifact_id=crl_payload["artifact_id"]))
+    download_response = await client.get(
+        CRL_DOWNLOAD_URL.format(artifact_id=crl_payload["artifact_id"])
+    )
     assert download_response.status_code == 200
     crl = x509.load_pem_x509_crl(download_response.text.encode("utf-8"))
     revoked_serials = {f"{entry.serial_number:x}".upper() for entry in crl}
@@ -225,12 +238,18 @@ async def _build_external_pkcs12_bundle() -> tuple[bytes, str]:
             session=session,
             artifact_type=CAArtifactType.ROOT_CERTIFICATE,
         )
-        assert artifact is not None and artifact.file_id is not None and artifact.secret_id is not None
-        root_cert_pem = await storage.load_certificate_pem(session=session, file_id=artifact.file_id)
+        assert (
+            artifact is not None and artifact.file_id is not None and artifact.secret_id is not None
+        )
+        root_cert_pem = await storage.load_certificate_pem(
+            session=session, file_id=artifact.file_id
+        )
         root_key_pem = await storage.load_private_key(session=session, secret_id=artifact.secret_id)
 
     root_certificate = x509.load_pem_x509_certificate(root_cert_pem.encode("utf-8"))
-    root_private_key = serialization.load_pem_private_key(root_key_pem.encode("utf-8"), password=None)
+    root_private_key = serialization.load_pem_private_key(
+        root_key_pem.encode("utf-8"), password=None
+    )
 
     leaf_private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
     now = datetime.now(timezone.utc)
@@ -261,10 +280,14 @@ async def _build_external_pkcs12_bundle() -> tuple[bytes, str]:
             critical=True,
         )
         .add_extension(
-            x509.ExtendedKeyUsage([ExtendedKeyUsageOID.CLIENT_AUTH, ExtendedKeyUsageOID.SERVER_AUTH]),
+            x509.ExtendedKeyUsage(
+                [ExtendedKeyUsageOID.CLIENT_AUTH, ExtendedKeyUsageOID.SERVER_AUTH]
+            ),
             critical=False,
         )
-        .add_extension(x509.SubjectKeyIdentifier.from_public_key(leaf_private_key.public_key()), critical=False)
+        .add_extension(
+            x509.SubjectKeyIdentifier.from_public_key(leaf_private_key.public_key()), critical=False
+        )
         .add_extension(
             x509.AuthorityKeyIdentifier.from_issuer_public_key(root_private_key.public_key()),
             critical=False,

@@ -79,7 +79,9 @@ class TokenBlocklist(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     jti: Mapped[str] = mapped_column(String(64), nullable=False, unique=True, index=True)
     token_type: Mapped[str] = mapped_column(String(16), nullable=False)
-    user_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("users.id", ondelete="SET NULL"))
+    user_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("users.id", ondelete="SET NULL")
+    )
     revoked_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,

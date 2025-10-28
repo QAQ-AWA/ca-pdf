@@ -45,11 +45,13 @@ class TSAClient:
     ) -> None:
         self.tsa_url = tsa_url or settings.tsa_url
         self.username = username or settings.tsa_username
-        self.password = password or (settings.tsa_password.get_secret_value() if settings.tsa_password else None)
+        self.password = password or (
+            settings.tsa_password.get_secret_value() if settings.tsa_password else None
+        )
 
     def is_configured(self) -> bool:
         """Check if TSA is configured and available."""
-        return self.tsa_url is not None
+        return bool(self.tsa_url)
 
     def get_timestamper(self) -> HTTPTimeStamper | None:
         """Create and return a pyHanko HTTP timestamper instance."""
@@ -59,7 +61,7 @@ class TSAClient:
         if not self.tsa_url:
             return None
 
-        auth = None
+        auth: tuple[str, str] | None = None
         if self.username and self.password:
             auth = (self.username, self.password)
 
@@ -75,7 +77,7 @@ class TSAClient:
             return False
 
         try:
-            auth = None
+            auth: tuple[str, str] | None = None
             if self.username and self.password:
                 auth = (self.username, self.password)
 
@@ -84,6 +86,6 @@ class TSAClient:
                 auth=auth,
                 timeout=10,
             )
-            return response.status_code < 500
+            return bool(response.status_code < 500)
         except requests.RequestException:
             return False

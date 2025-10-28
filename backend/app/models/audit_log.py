@@ -20,12 +20,14 @@ class AuditLog(Base):
     __tablename__ = "audit_logs"
 
     id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
-    actor_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("users.id", ondelete="SET NULL"))
+    actor_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("users.id", ondelete="SET NULL")
+    )
     event_type: Mapped[str] = mapped_column(String(100), nullable=False)
     resource: Mapped[str] = mapped_column(String(150), nullable=False)
     ip_address: Mapped[str | None] = mapped_column(String(45), nullable=True)
     user_agent: Mapped[str | None] = mapped_column(String(255), nullable=True)
-    metadata: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
+    meta: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
     message: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),

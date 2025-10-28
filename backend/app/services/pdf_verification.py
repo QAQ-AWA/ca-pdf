@@ -14,13 +14,17 @@ from pyhanko.pdf_utils.reader import PdfFileReader
 from pyhanko.sign.validation import validate_pdf_signature
 from pyhanko.sign.validation.errors import SignatureValidationError
 from pyhanko.sign.validation.pdf_embedded import EmbeddedPdfSignature
-from pyhanko.sign.validation.status import ModificationLevel, PdfSignatureStatus, TimestampSignatureStatus
+from pyhanko.sign.validation.status import (
+    ModificationLevel,
+    PdfSignatureStatus,
+    TimestampSignatureStatus,
+)
 from pyhanko_certvalidator.context import ValidationContext
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.services.certificate_authority import (
-    CertificateAuthorityService,
     CertificateAuthorityError,
+    CertificateAuthorityService,
     RootCANotFoundError,
 )
 
@@ -119,13 +123,17 @@ class PDFVerificationService:
         try:
             root_pem = await self._ca_service.export_root_certificate(session=session)
         except RootCANotFoundError as exc:
-            raise PDFVerificationRootCAError("Root certificate authority has not been generated") from exc
+            raise PDFVerificationRootCAError(
+                "Root certificate authority has not been generated"
+            ) from exc
         except CertificateAuthorityError as exc:
             raise PDFVerificationRootCAError(f"Unable to load root certificate: {exc}") from exc
 
         try:
             root_cert = x509.load_pem_x509_certificate(root_pem.encode("utf-8"))
-            root_asn1 = asn1_x509.Certificate.load(root_cert.public_bytes(serialization.Encoding.DER))
+            root_asn1 = asn1_x509.Certificate.load(
+                root_cert.public_bytes(serialization.Encoding.DER)
+            )
         except Exception as exc:  # pragma: no cover - defensive branch
             raise PDFVerificationRootCAError("Stored root certificate is invalid") from exc
 
@@ -179,13 +187,17 @@ class PDFVerificationService:
         if isinstance(timestamp_status, TimestampSignatureStatus):
             timestamp_trusted = bool(timestamp_status.trusted)
             timestamp_time = timestamp_status.timestamp
-            timestamp_summary = timestamp_status.summary
+            summary_value = timestamp_status.summary
+            timestamp_summary = summary_value() if callable(summary_value) else str(summary_value)
 
         modification_level: str | None = None
         if isinstance(status.modification_level, ModificationLevel):
             modification_level = status.modification_level.name.lower()
         elif status.modification_level is not None:
             modification_level = str(status.modification_level)
+
+        summary_value = status.summary
+        summary_text = summary_value() if callable(summary_value) else str(summary_value)
 
         return SignatureVerificationDetails(
             field_name=embedded_signature.field_name,
@@ -196,7 +208,7 @@ class PDFVerificationService:
             signing_time=status.signer_reported_dt,
             signer_common_name=signer_common_name,
             signer_serial_number=signer_serial,
-            summary=status.summary,
+            summary=summary_text,
             timestamp_trusted=timestamp_trusted,
             timestamp_time=timestamp_time,
             timestamp_summary=timestamp_summary,
