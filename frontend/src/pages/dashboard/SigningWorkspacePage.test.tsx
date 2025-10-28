@@ -5,6 +5,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 import { ThemeProvider } from "../../components/ThemeProvider";
+import * as downloadModule from "../../lib/download";
 import { httpClient } from "../../lib/httpClient";
 import { SigningWorkspacePage } from "./SigningWorkspacePage";
 
@@ -35,6 +36,7 @@ describe("SigningWorkspacePage", () => {
   let user: ReturnType<typeof userEvent.setup>;
   let createObjectUrlSpy: SpyInstance;
   let revokeObjectUrlSpy: SpyInstance;
+  let downloadSpy: SpyInstance;
 
   beforeAll(() => {
     createObjectUrlSpy = vi.spyOn(URL, "createObjectURL").mockReturnValue("blob:preview");
@@ -45,10 +47,12 @@ describe("SigningWorkspacePage", () => {
     user = userEvent.setup();
     mock = new AxiosMockAdapter(httpClient);
     mock.onGet("/api/v1/pdf/seals").reply(200, { seals: [] });
+    downloadSpy = vi.spyOn(downloadModule, "triggerFileDownload").mockImplementation(() => undefined);
   });
 
   afterEach(() => {
     mock.restore();
+    downloadSpy.mockRestore();
   });
 
   afterAll(() => {
@@ -95,6 +99,11 @@ describe("SigningWorkspacePage", () => {
 
     await waitFor(() => expect(mock.history.post.length).toBe(1));
     await waitFor(() => expect(screen.getByText(/signed/i)).toBeInTheDocument());
+    await waitFor(() => expect(downloadSpy).toHaveBeenCalledTimes(1));
+
+    const [downloadedBlob, downloadedFilename] = downloadSpy.mock.calls[0];
+    expect(downloadedBlob).toBeInstanceOf(Blob);
+    expect(downloadedFilename).toBe("contract-signed.pdf");
 
     expect(screen.getByRole("button", { name: /download/i })).toBeInTheDocument();
 
@@ -137,5 +146,6 @@ describe("SigningWorkspacePage", () => {
 
     await waitFor(() => expect(screen.getByText(/error/i)).toBeInTheDocument());
     expect(screen.getByText(/failed to sign document/i)).toBeInTheDocument();
+    expect(downloadSpy).not.toHaveBeenCalled();
   });
 });

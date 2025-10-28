@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any
+from urllib.parse import quote
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile, status
+from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
-from starlette.responses import Response
 
 from app.api.dependencies.auth import get_current_user
 from app.core.config import settings
@@ -17,7 +19,6 @@ from app.models.user import User
 from app.schemas.pdf_signing import (
     PDFBatchSignResponse,
     PDFBatchSignResultItem,
-    PDFSignResponse,
     PDFVerificationResponse,
     SignatureCoordinates,
     SignatureMetadata,
@@ -109,7 +110,20 @@ async def _record_audit_event(
     )
 
 
-@router.post("/sign", response_model=PDFSignResponse)
+@router.post(
+    "/sign",
+    response_class=StreamingResponse,
+    responses={
+        status.HTTP_200_OK: {
+            "description": "Signed PDF document",
+            "content": {
+                "application/pdf": {
+                    "schema": {"type": "string", "format": "binary"}
+                }
+            },
+        }
+    },
+)
 async def sign_pdf(
     request: Request,
     pdf_file: UploadFile = File(..., description="PDF file to sign"),
@@ -128,7 +142,7 @@ async def sign_pdf(
     embed_ltv: bool = Form(default=False, description="Embed LTV validation material"),
     current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_db),
-) -> PDFSignResponse:
+) -> StreamingResponse:
     """Sign a single PDF document with a user's certificate."""
 
     if pdf_file.content_type not in settings.pdf_allowed_content_types:
@@ -136,6 +150,13 @@ async def sign_pdf(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Invalid content type: {pdf_file.content_type}",
         )
+
+    upload_filename = Path(pdf_file.filename or "document.pdf").name
+    original_filename = (
+        upload_filename.replace("\x00", "").replace("\\", "_").replace("/", "_").strip()
+    )
+    if not original_filename:
+        original_filename = "document.pdf"
 
     try:
         pdf_data = await pdf_file.read()
@@ -220,6 +241,24 @@ async def sign_pdf(
             detail=str(exc),
         ) from exc
 
+    base_name = (
+        original_filename[:-4]
+        if original_filename.lower().endswith(".pdf")
+        else original_filename
+    )
+    if not base_name:
+        base_name = "document"
+
+    safe_base = (
+        "".join(
+            ch if ch.isalnum() or ch in {"-", "_", " "} else "_"
+            for ch in base_name
+        ).strip()
+        or "document"
+    )
+    signed_filename = f"{safe_base}-signed.pdf"
+    encoded_filename = quote(signed_filename)
+
     await _record_audit_event(
         session=session,
         request=request,
@@ -235,21 +274,34 @@ async def sign_pdf(
             "ltv_embedded": result.ltv_embedded,
             "signed_at": result.signed_at.isoformat(),
             "file_size": result.file_size,
+            "original_filename": original_filename,
+            "signed_filename": signed_filename,
         },
     )
 
-    return Response(
-        content=result.signed_pdf,
+    headers: dict[str, str] = {
+        "Content-Disposition": (
+            f"attachment; filename=\"{signed_filename}\"; filename*=UTF-8''{encoded_filename}"
+        ),
+        "Content-Length": str(result.file_size),
+        "X-Document-ID": result.document_id,
+        "X-Signed-At": result.signed_at.isoformat(),
+        "X-Certificate-ID": str(result.certificate_id),
+        "X-TSA-Used": "true" if result.tsa_used else "false",
+        "X-LTV-Embedded": "true" if result.ltv_embedded else "false",
+        "X-Visibility": result.visibility.value,
+        "X-Original-Filename": original_filename,
+    }
+
+    if result.seal_id is not None:
+        headers["X-Seal-ID"] = str(result.seal_id)
+
+    response = StreamingResponse(
+        iter([result.signed_pdf]),
         media_type="application/pdf",
-        headers={
-            "Content-Disposition": f'attachment; filename="signed_{result.document_id}.pdf"',
-            "X-Document-ID": result.document_id,
-            "X-Signed-At": result.signed_at.isoformat(),
-            "X-Certificate-ID": str(result.certificate_id),
-            "X-TSA-Used": str(result.tsa_used),
-            "X-LTV-Embedded": str(result.ltv_embedded),
-        },
+        headers=headers,
     )
+    return response
 
 
 @router.post("/sign/batch", response_model=PDFBatchSignResponse)

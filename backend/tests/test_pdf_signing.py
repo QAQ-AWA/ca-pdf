@@ -508,6 +508,46 @@ class TestAPIEndpoints:
 
         assert response.status_code == 401
 
+    async def test_sign_pdf_endpoint_returns_pdf_response(
+        self,
+        client: AsyncClient,
+        user_certificate: tuple[str, int],
+    ) -> None:
+        """Ensure the signing endpoint streams back a PDF attachment."""
+
+        from app.core.security import create_token
+
+        cert_id, _ = user_certificate
+        pdf_data = create_minimal_pdf()
+        token = create_token(subject=str(1), token_type="access")
+
+        response = await client.post(
+            "/api/v1/pdf/sign",
+            headers={"Authorization": f"Bearer {token}"},
+            files={"pdf_file": ("test.pdf", pdf_data, "application/pdf")},
+            data={"certificate_id": cert_id},
+        )
+
+        assert response.status_code == 200
+        assert response.headers.get("content-type") == "application/pdf"
+
+        disposition = response.headers.get("content-disposition")
+        assert disposition is not None
+        assert "attachment" in disposition
+        assert "test-signed.pdf" in disposition
+
+        assert response.headers.get("x-document-id")
+        assert response.headers.get("x-signed-at")
+        assert response.headers.get("x-certificate-id") == cert_id
+        assert response.headers.get("x-original-filename") == "test.pdf"
+        assert response.headers.get("x-visibility") == SignatureVisibility.INVISIBLE.value
+        assert response.headers.get("x-tsa-used") in {"true", "false"}
+        assert response.headers.get("x-ltv-embedded") in {"true", "false"}
+
+        content = response.content
+        assert content.startswith(b"%PDF-")
+        assert int(response.headers.get("content-length", "0")) == len(content)
+
     async def test_sign_pdf_endpoint_invalid_content_type(
         self,
         client: AsyncClient,
