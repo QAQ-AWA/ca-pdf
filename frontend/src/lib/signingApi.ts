@@ -1,3 +1,6 @@
+import axios, { type AxiosError } from "axios";
+
+import { triggerFileDownload } from "./download";
 import { httpClient } from "./httpClient";
 import type { SignatureMetadata, SignatureVisibility } from "../types/signing";
 
@@ -17,6 +20,107 @@ const filenameFromDisposition = (headerValue: string | null | undefined): string
   }
 
   return null;
+};
+
+const sanitizeFilename = (name: string): string => {
+  if (!name) {
+    return "document.pdf";
+  }
+  const base = name.trim().split(/[/\\]/).pop() ?? name;
+  const cleaned = base.replace(/[^\w.\- ]+/g, "_");
+  return cleaned || "document.pdf";
+};
+
+const toSignedFilename = (name: string): string => {
+  const sanitized = sanitizeFilename(name);
+  const withoutExtension = sanitized.replace(/\.pdf$/i, "");
+  const base = withoutExtension.trim() || "document";
+  return `${base}-signed.pdf`;
+};
+
+const toBooleanOrNull = (value: string | undefined): boolean | null => {
+  if (value === "true") {
+    return true;
+  }
+  if (value === "false") {
+    return false;
+  }
+  return null;
+};
+
+const extractDetailString = (value: unknown): string | null => {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+  const maybeDetail = (value as Record<string, unknown>).detail;
+  if (typeof maybeDetail === "string" && maybeDetail.trim()) {
+    return maybeDetail.trim();
+  }
+  return null;
+};
+
+const parseTextPayload = (payload: string): string | null => {
+  const trimmed = payload.trim();
+  if (!trimmed) {
+    return null;
+  }
+  try {
+    const parsed = JSON.parse(trimmed);
+    const detail = extractDetailString(parsed);
+    if (detail) {
+      return detail;
+    }
+  } catch {
+    // ignore JSON parse errors
+  }
+  return trimmed;
+};
+
+const arrayBufferToString = (buffer: ArrayBuffer): string => {
+  if (typeof TextDecoder !== "undefined") {
+    return new TextDecoder().decode(new Uint8Array(buffer));
+  }
+
+  let result = "";
+  const view = new Uint8Array(buffer);
+  for (let index = 0; index < view.length; index += 1) {
+    result += String.fromCharCode(view[index]);
+  }
+  return result;
+};
+
+const parseAxiosErrorMessage = async (error: AxiosError<unknown>): Promise<string> => {
+  const defaultMessage = error.response?.statusText?.trim() || error.message || "Failed to sign document.";
+  const data = error.response?.data;
+
+  if (data instanceof Blob) {
+    try {
+      const text = await data.text();
+      return parseTextPayload(text) ?? defaultMessage;
+    } catch {
+      return defaultMessage;
+    }
+  }
+
+  if (data instanceof ArrayBuffer) {
+    try {
+      const text = arrayBufferToString(data);
+      return parseTextPayload(text) ?? defaultMessage;
+    } catch {
+      return defaultMessage;
+    }
+  }
+
+  if (typeof data === "string") {
+    return parseTextPayload(data) ?? defaultMessage;
+  }
+
+  const detail = extractDetailString(data);
+  if (detail) {
+    return detail;
+  }
+
+  return defaultMessage || "Failed to sign document.";
 };
 
 type CoordinatesPayload = {
@@ -57,10 +161,11 @@ export type SignPdfResult = {
 
 export const signPdf = async (options: SignPdfOptions): Promise<SignPdfResult> => {
   const formData = new FormData();
-  const inferredFilename =
+  const rawFilename =
     options.filename ?? ("name" in options.file ? (options.file as File).name : undefined) ?? "document.pdf";
+  const uploadFilename = sanitizeFilename(rawFilename);
 
-  formData.append("pdf_file", options.file, inferredFilename);
+  formData.append("pdf_file", options.file, uploadFilename);
   formData.append("certificate_id", options.certificateId);
 
   if (options.sealId) {
@@ -95,28 +200,62 @@ export const signPdf = async (options: SignPdfOptions): Promise<SignPdfResult> =
     formData.append("embed_ltv", "true");
   }
 
-  const response = await httpClient.post<ArrayBuffer>("/api/v1/pdf/sign", formData, {
-    responseType: "arraybuffer",
-  });
+  try {
+    const response = await httpClient.post<Blob | ArrayBuffer>("/api/v1/pdf/sign", formData, {
+      responseType: "blob",
+    });
 
-  const contentType = response.headers["content-type"] ?? "application/pdf";
-  const disposition = response.headers["content-disposition"];
-  const filename = filenameFromDisposition(disposition) ?? `signed-${inferredFilename}`;
+    const contentType = response.headers["content-type"] ?? "application/pdf";
+    const disposition = response.headers["content-disposition"] ?? null;
+    const headerFilename = filenameFromDisposition(disposition);
+    const sanitizedHeaderFilename = headerFilename ? sanitizeFilename(headerFilename) : null;
+    const filename = sanitizedHeaderFilename ?? toSignedFilename(rawFilename);
 
-  const blob = new Blob([response.data], { type: contentType });
+    const data = response.data;
+    let blob: Blob;
+    if (data instanceof Blob) {
+      blob = data.type ? data : new Blob([data], { type: contentType });
+    } else {
+      blob = new Blob([data], { type: contentType });
+    }
 
-  return {
-    blob,
-    filename,
-    contentType,
-    documentId: (response.headers["x-document-id"] as string | undefined) ?? null,
-    signedAt: (response.headers["x-signed-at"] as string | undefined) ?? null,
-    certificateId: (response.headers["x-certificate-id"] as string | undefined) ?? null,
-    sealId: (response.headers["x-seal-id"] as string | undefined) ?? null,
-    visibility: (response.headers["x-visibility"] as SignatureVisibility | undefined) ?? null,
-    tsaUsed: response.headers["x-tsa-used"] === "true",
-    ltvEmbedded: response.headers["x-ltv-embedded"] === "true",
-  };
+    if (typeof window !== "undefined" && typeof document !== "undefined") {
+      triggerFileDownload(blob, filename);
+    }
+
+    const visibilityHeader = response.headers["x-visibility"];
+    const visibility: SignatureVisibility | null =
+      visibilityHeader === "visible" || visibilityHeader === "invisible"
+        ? (visibilityHeader as SignatureVisibility)
+        : null;
+
+    const documentIdHeader = response.headers["x-document-id"];
+    const signedAtHeader = response.headers["x-signed-at"];
+    const certificateIdHeader = response.headers["x-certificate-id"];
+    const sealIdHeader = response.headers["x-seal-id"];
+    const tsaUsedHeader = response.headers["x-tsa-used"];
+    const ltvEmbeddedHeader = response.headers["x-ltv-embedded"];
+
+    return {
+      blob,
+      filename,
+      contentType: blob.type || contentType,
+      documentId: typeof documentIdHeader === "string" && documentIdHeader ? documentIdHeader : null,
+      signedAt: typeof signedAtHeader === "string" && signedAtHeader ? signedAtHeader : null,
+      certificateId:
+        typeof certificateIdHeader === "string" && certificateIdHeader ? certificateIdHeader : null,
+      sealId: typeof sealIdHeader === "string" && sealIdHeader ? sealIdHeader : null,
+      visibility,
+      tsaUsed: toBooleanOrNull(tsaUsedHeader),
+      ltvEmbedded: toBooleanOrNull(ltvEmbeddedHeader),
+    };
+  } catch (error) {
+    if (axios.isAxiosError(error)) {
+      const message = await parseAxiosErrorMessage(error);
+      throw new Error(message);
+    }
+    throw error;
+  }
 };
 
 export type BatchSignOptions = CommonSignOptions & {
@@ -148,7 +287,8 @@ export const batchSignPdfs = async (options: BatchSignOptions): Promise<BatchSig
   const formData = new FormData();
 
   options.files.forEach((entry, index) => {
-    const filename = entry.filename ?? ("name" in entry.file ? (entry.file as File).name : undefined) ?? `document-${index + 1}.pdf`;
+    const filename =
+      entry.filename ?? ("name" in entry.file ? (entry.file as File).name : undefined) ?? `document-${index + 1}.pdf`;
     formData.append("pdf_files", entry.file, filename);
   });
 
