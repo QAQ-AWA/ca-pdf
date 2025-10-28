@@ -69,18 +69,18 @@ async def logout(
     )
 
     if credentials is not None:
+        access_payload: TokenPayload | None = None
         try:
             access_payload = decode_token(credentials.credentials)
         except InvalidTokenError:
             access_payload = None
-        else:
-            if access_payload.type == "access":
-                await token_crud.revoke_token(
-                    session=session,
-                    jti=access_payload.jti,
-                    token_type=access_payload.type,
-                    user_id=current_user.id,
-                )
+        if access_payload is not None and access_payload.type == "access":
+            await token_crud.revoke_token(
+                session=session,
+                jti=access_payload.jti,
+                token_type=access_payload.type,
+                user_id=current_user.id,
+            )
 
     return {"detail": "Successfully logged out"}
 

@@ -18,7 +18,7 @@ async def get_latest_artifact_by_type(
 ) -> CAArtifact | None:
     """Return the most recently created artifact for the supplied type."""
 
-    statement: Select[CAArtifact] = (
+    statement: Select[tuple[CAArtifact]] = (
         select(CAArtifact)
         .where(CAArtifact.artifact_type == artifact_type.value)
         .order_by(CAArtifact.created_at.desc())
@@ -67,7 +67,7 @@ async def list_artifacts(
 ) -> list[CAArtifact]:
     """Return artifacts ordered from newest to oldest."""
 
-    statement: Select[CAArtifact] = select(CAArtifact).order_by(CAArtifact.created_at.desc())
+    statement: Select[tuple[CAArtifact]] = select(CAArtifact).order_by(CAArtifact.created_at.desc())
     if artifact_type is not None:
         statement = statement.where(CAArtifact.artifact_type == artifact_type.value)
     if limit is not None:
@@ -80,7 +80,7 @@ async def list_artifacts(
 async def get_artifact_by_id(*, session: AsyncSession, artifact_id: UUID) -> CAArtifact | None:
     """Retrieve a certificate authority artifact by its identifier."""
 
-    statement: Select[CAArtifact] = (
+    statement: Select[tuple[CAArtifact]] = (
         select(CAArtifact)
         .where(CAArtifact.id == artifact_id)
         .options(

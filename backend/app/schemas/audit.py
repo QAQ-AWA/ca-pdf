@@ -18,7 +18,7 @@ class AuditLogEntry(BaseModel):
     resource: str = Field(description="Name of the resource associated with the event")
     ip_address: str | None = Field(default=None, description="IP address recorded for the event")
     user_agent: str | None = Field(default=None, description="User agent associated with the event")
-    metadata: dict[str, Any] | None = Field(default=None, description="Structured metadata payload")
+    meta: dict[str, Any] | None = Field(default=None, description="Structured metadata payload")
     message: str | None = Field(default=None, description="Optional human readable message")
     created_at: datetime = Field(description="Timestamp when the entry was created")
 

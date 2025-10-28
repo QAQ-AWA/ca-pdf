@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
+import io
+from pathlib import Path
 from typing import Any
+from urllib.parse import quote
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile, status
+from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
-from starlette.responses import Response
 
 from app.api.dependencies.auth import get_current_user
 from app.core.config import settings
@@ -93,7 +96,7 @@ async def _record_audit_event(
     actor_id: int,
     event_type: str,
     resource: str,
-    metadata: dict[str, Any] | None = None,
+    meta: dict[str, Any] | None = None,
 ) -> None:
     """Persist an audit event capturing request metadata."""
 
@@ -102,14 +105,14 @@ async def _record_audit_event(
         actor_id=actor_id,
         event_type=event_type,
         resource=resource,
-        metadata=metadata,
+        meta=meta,
         ip_address=_extract_client_ip(request),
         user_agent=request.headers.get("user-agent"),
         commit=True,
     )
 
 
-@router.post("/sign", response_model=PDFSignResponse)
+@router.post("/sign")
 async def sign_pdf(
     request: Request,
     pdf_file: UploadFile = File(..., description="PDF file to sign"),
@@ -128,7 +131,7 @@ async def sign_pdf(
     embed_ltv: bool = Form(default=False, description="Embed LTV validation material"),
     current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_db),
-) -> PDFSignResponse:
+) -> StreamingResponse:
     """Sign a single PDF document with a user's certificate."""
 
     if pdf_file.content_type not in settings.pdf_allowed_content_types:
@@ -184,6 +187,11 @@ async def sign_pdf(
     if reason or location or contact_info:
         metadata = SignatureMetadata(reason=reason, location=location, contact_info=contact_info)
 
+    original_filename = pdf_file.filename or "document.pdf"
+    base_name = Path(original_filename).stem or "document"
+    sanitized_base = base_name.replace("\\", "_").replace("/", "_").replace("\"", "").strip() or "document"
+    signed_filename = f"{sanitized_base}-signed.pdf"
+
     service = PDFSigningService()
 
     try:
@@ -226,7 +234,7 @@ async def sign_pdf(
         actor_id=current_user.id,
         event_type="pdf.signature.applied",
         resource="pdf",
-        metadata={
+        meta={
             "document_id": result.document_id,
             "certificate_id": str(result.certificate_id),
             "seal_id": str(result.seal_id) if result.seal_id else None,
@@ -235,21 +243,32 @@ async def sign_pdf(
             "ltv_embedded": result.ltv_embedded,
             "signed_at": result.signed_at.isoformat(),
             "file_size": result.file_size,
+            "original_filename": original_filename,
+            "signed_filename": signed_filename,
         },
     )
 
-    return Response(
-        content=result.signed_pdf,
-        media_type="application/pdf",
-        headers={
-            "Content-Disposition": f'attachment; filename="signed_{result.document_id}.pdf"',
-            "X-Document-ID": result.document_id,
-            "X-Signed-At": result.signed_at.isoformat(),
-            "X-Certificate-ID": str(result.certificate_id),
-            "X-TSA-Used": str(result.tsa_used),
-            "X-LTV-Embedded": str(result.ltv_embedded),
-        },
-    )
+    quoted_filename = quote(signed_filename)
+    content_disposition = f'attachment; filename="{signed_filename}"'
+    if quoted_filename != signed_filename:
+        content_disposition += f"; filename*=UTF-8''{quoted_filename}"
+
+    headers: dict[str, str] = {
+        "Content-Disposition": content_disposition,
+        "X-Document-ID": result.document_id,
+        "X-Signed-At": result.signed_at.isoformat(),
+        "X-Certificate-ID": str(result.certificate_id),
+        "X-Visibility": result.visibility.value,
+        "X-TSA-Used": str(result.tsa_used).lower(),
+        "X-LTV-Embedded": str(result.ltv_embedded).lower(),
+        "X-Original-Filename": original_filename,
+        "X-Signed-Filename": signed_filename,
+    }
+    if result.seal_id is not None:
+        headers["X-Seal-Id"] = str(result.seal_id)
+
+    pdf_stream = io.BytesIO(result.signed_pdf)
+    return StreamingResponse(pdf_stream, media_type="application/pdf", headers=headers)
 
 
 @router.post("/sign/batch", response_model=PDFBatchSignResponse)
@@ -415,7 +434,7 @@ async def batch_sign_pdfs(
         actor_id=current_user.id,
         event_type="pdf.signature.batch_applied",
         resource="pdf",
-        metadata={
+        meta={
             "total": len(pdfs),
             "successful": successful,
             "failed": failed,

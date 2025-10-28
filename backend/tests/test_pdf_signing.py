@@ -515,10 +515,10 @@ class TestAPIEndpoints:
         user_certificate: tuple[str, int],
     ) -> None:
         """Test that invalid content types are rejected."""
-        from app.core.security import create_token
+        from app.core.security import create_access_token
 
         cert_id, _ = user_certificate
-        token = create_token(subject=str(1), token_type="access")
+        token = create_access_token(subject=str(1), role="admin")
 
         response = await client.post(
             "/api/v1/pdf/sign",
@@ -528,6 +528,38 @@ class TestAPIEndpoints:
         )
 
         assert response.status_code == 400
+
+    async def test_sign_pdf_endpoint_returns_pdf(
+        self,
+        client: AsyncClient,
+        user_certificate: tuple[str, int],
+    ) -> None:
+        """Test that successful sign requests return a PDF payload."""
+        from app.core.security import create_access_token
+
+        cert_id, owner_id = user_certificate
+        token = create_access_token(subject=str(owner_id), role="admin")
+        pdf_data = create_minimal_pdf()
+
+        response = await client.post(
+            "/api/v1/pdf/sign",
+            headers={"Authorization": f"Bearer {token}"},
+            files={"pdf_file": ("test.pdf", pdf_data, "application/pdf")},
+            data={"certificate_id": cert_id},
+        )
+
+        assert response.status_code == 200
+        assert response.headers["content-type"] == "application/pdf"
+        content_disposition = response.headers.get("content-disposition", "")
+        assert content_disposition.startswith("attachment;")
+        assert response.headers.get("x-original-filename") == "test.pdf"
+        assert response.headers.get("x-signed-filename") == "test-signed.pdf"
+        assert response.headers.get("x-certificate-id") == cert_id
+        assert response.headers.get("x-visibility") == "invisible"
+        assert response.headers.get("x-tsa-used") in {"true", "false"}
+        assert response.headers.get("x-ltv-embedded") in {"true", "false"}
+        assert response.headers.get("x-document-id")
+        assert len(response.content) > len(pdf_data)
 
     async def test_batch_sign_endpoint_unauthenticated(self, client: AsyncClient) -> None:
         """Test that unauthenticated batch requests are rejected."""
