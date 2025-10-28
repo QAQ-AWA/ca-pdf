@@ -6,7 +6,6 @@ from app.schemas.pdf_signing import (
     PDFBatchSignResponse,
     PDFBatchSignResultItem,
     PDFSignRequest,
-    PDFSignResponse,
     PDFVerificationResponse,
     SignatureCoordinates,
     SignatureMetadata,

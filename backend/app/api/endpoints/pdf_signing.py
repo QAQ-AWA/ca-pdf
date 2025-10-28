@@ -7,7 +7,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile, status
 from sqlalchemy.ext.asyncio import AsyncSession
-from starlette.responses import Response
+from starlette.responses import StreamingResponse
 
 from app.api.dependencies.auth import get_current_user
 from app.core.config import settings
@@ -17,7 +17,6 @@ from app.models.user import User
 from app.schemas.pdf_signing import (
     PDFBatchSignResponse,
     PDFBatchSignResultItem,
-    PDFSignResponse,
     PDFVerificationResponse,
     SignatureCoordinates,
     SignatureMetadata,
@@ -86,6 +85,23 @@ def _extract_client_ip(request: Request) -> str | None:
     return None
 
 
+def _derive_signed_filename(original_name: str | None) -> str:
+    """Return the filename for a signed PDF attachment."""
+
+    if not original_name:
+        return "document-signed.pdf"
+
+    candidate = original_name.rsplit("/", 1)[-1].strip()
+    if not candidate:
+        return "document-signed.pdf"
+
+    if candidate.lower().endswith(".pdf"):
+        stem = candidate[:-4] or "document"
+        return f"{stem}-signed.pdf"
+
+    return f"{candidate}-signed.pdf"
+
+
 async def _record_audit_event(
     *,
     session: AsyncSession,
@@ -109,7 +125,7 @@ async def _record_audit_event(
     )
 
 
-@router.post("/sign", response_model=PDFSignResponse)
+@router.post("/sign")
 async def sign_pdf(
     request: Request,
     pdf_file: UploadFile = File(..., description="PDF file to sign"),
@@ -128,7 +144,7 @@ async def sign_pdf(
     embed_ltv: bool = Form(default=False, description="Embed LTV validation material"),
     current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_db),
-) -> PDFSignResponse:
+) -> StreamingResponse:
     """Sign a single PDF document with a user's certificate."""
 
     if pdf_file.content_type not in settings.pdf_allowed_content_types:
@@ -238,18 +254,24 @@ async def sign_pdf(
         },
     )
 
-    return Response(
-        content=result.signed_pdf,
+    signed_filename = _derive_signed_filename(pdf_file.filename)
+
+    response = StreamingResponse(
+        iter((result.signed_pdf,)),
         media_type="application/pdf",
-        headers={
-            "Content-Disposition": f'attachment; filename="signed_{result.document_id}.pdf"',
-            "X-Document-ID": result.document_id,
-            "X-Signed-At": result.signed_at.isoformat(),
-            "X-Certificate-ID": str(result.certificate_id),
-            "X-TSA-Used": str(result.tsa_used),
-            "X-LTV-Embedded": str(result.ltv_embedded),
-        },
     )
+    response.headers["Content-Disposition"] = f'attachment; filename="{signed_filename}"'
+    response.headers["Content-Length"] = str(result.file_size)
+    response.headers["X-Document-ID"] = result.document_id
+    response.headers["X-Signed-At"] = result.signed_at.isoformat()
+    response.headers["X-Certificate-ID"] = str(result.certificate_id)
+    response.headers["X-Visibility"] = result.visibility.value
+    if result.seal_id is not None:
+        response.headers["X-Seal-Id"] = str(result.seal_id)
+    response.headers["X-TSA-Used"] = "true" if result.tsa_used else "false"
+    response.headers["X-LTV-Embedded"] = "true" if result.ltv_embedded else "false"
+
+    return response
 
 
 @router.post("/sign/batch", response_model=PDFBatchSignResponse)

@@ -42,6 +42,9 @@ class EncryptedStorageService:
             content_type.lower() for content_type in settings.seal_image_allowed_content_types
         }
 
+        self._fernet: Fernet | None
+        self._aesgcm: AESGCM | None
+
         if self._algorithm is StorageEncryptionAlgorithm.FERNET:
             self._fernet = Fernet(self._master_key)
             self._aesgcm = None
@@ -217,11 +220,13 @@ class EncryptedStorageService:
 
     def _encrypt_payload(self, data: bytes) -> tuple[bytes, bytes | None, bytes | None]:
         if self._algorithm is StorageEncryptionAlgorithm.FERNET:
-            assert self._fernet is not None  # For type checkers
+            if self._fernet is None:
+                raise StorageCorruptionError("Fernet master key is unavailable")
             token = self._fernet.encrypt(data)
             return token, None, None
 
-        assert self._aesgcm is not None  # For type checkers
+        if self._aesgcm is None:
+            raise StorageCorruptionError("AES-GCM master key is unavailable")
         nonce = os.urandom(12)
         encrypted = self._aesgcm.encrypt(nonce, data, associated_data=None)
         ciphertext, tag = encrypted[:-16], encrypted[-16:]
