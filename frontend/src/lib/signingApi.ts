@@ -45,6 +45,7 @@ export type SignPdfOptions = CommonSignOptions & {
 export type SignPdfResult = {
   blob: Blob;
   filename: string;
+  originalFilename: string;
   contentType: string;
   documentId: string | null;
   signedAt: string | null;
@@ -99,21 +100,35 @@ export const signPdf = async (options: SignPdfOptions): Promise<SignPdfResult> =
     responseType: "arraybuffer",
   });
 
-  const contentType = response.headers["content-type"] ?? "application/pdf";
+  const contentTypeHeader = response.headers["content-type"];
+  const contentType = typeof contentTypeHeader === "string" && contentTypeHeader.length > 0 ? contentTypeHeader : "application/pdf";
+
   const disposition = response.headers["content-disposition"];
-  const filename = filenameFromDisposition(disposition) ?? `signed-${inferredFilename}`;
+  const dispositionFilename = filenameFromDisposition(disposition);
+  const signedFilenameHeader = (response.headers["x-signed-filename"] as string | undefined)?.trim();
+  const filename = signedFilenameHeader && signedFilenameHeader.length > 0 ? signedFilenameHeader : dispositionFilename ?? `signed-${inferredFilename}`;
+  const originalFilename = (response.headers["x-original-filename"] as string | undefined)?.trim() ?? inferredFilename;
 
   const blob = new Blob([response.data], { type: contentType });
+
+  const documentIdHeader = (response.headers["x-document-id"] as string | undefined) ?? null;
+  const sealIdHeader = (response.headers["x-seal-id"] as string | undefined) ?? undefined;
+  const visibilityHeader = response.headers["x-visibility"];
+  const visibility =
+    visibilityHeader === "visible" || visibilityHeader === "invisible"
+      ? (visibilityHeader as SignatureVisibility)
+      : null;
 
   return {
     blob,
     filename,
+    originalFilename,
     contentType,
-    documentId: (response.headers["x-document-id"] as string | undefined) ?? null,
+    documentId: documentIdHeader,
     signedAt: (response.headers["x-signed-at"] as string | undefined) ?? null,
     certificateId: (response.headers["x-certificate-id"] as string | undefined) ?? null,
-    sealId: (response.headers["x-seal-id"] as string | undefined) ?? null,
-    visibility: (response.headers["x-visibility"] as SignatureVisibility | undefined) ?? null,
+    sealId: sealIdHeader && sealIdHeader.length > 0 ? sealIdHeader : null,
+    visibility,
     tsaUsed: response.headers["x-tsa-used"] === "true",
     ltvEmbedded: response.headers["x-ltv-embedded"] === "true",
   };

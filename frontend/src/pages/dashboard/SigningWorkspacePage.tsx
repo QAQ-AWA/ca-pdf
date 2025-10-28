@@ -462,6 +462,16 @@ export const SigningWorkspacePage = () => {
 
           const finalBlob = currentBlob instanceof Blob ? currentBlob : new Blob([currentBlob]);
 
+          try {
+            triggerFileDownload(finalBlob, currentFilename);
+          } catch (downloadError) {
+            const message =
+              downloadError instanceof Error
+                ? downloadError.message
+                : "Failed to trigger signed document download.";
+            setGlobalError(message);
+          }
+
           setDocuments((prev) =>
             prev.map((item) =>
               item.id === document.id
