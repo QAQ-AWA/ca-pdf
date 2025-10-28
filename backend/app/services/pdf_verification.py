@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Sequence
 
-from asn1crypto import x509 as asn1_x509
+from asn1crypto import x509 as asn1_x509  # type: ignore[import-untyped]
 from cryptography import x509
 from cryptography.hazmat.primitives import serialization
 from pyhanko.pdf_utils.reader import PdfFileReader
