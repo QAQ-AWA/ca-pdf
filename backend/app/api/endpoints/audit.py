@@ -48,7 +48,7 @@ async def list_audit_logs(
                 resource=entry.resource,
                 ip_address=entry.ip_address,
                 user_agent=entry.user_agent,
-                metadata=entry.metadata,
+                metadata=entry.meta,
                 message=entry.message,
                 created_at=entry.created_at,
             )

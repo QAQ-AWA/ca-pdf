@@ -31,7 +31,9 @@ class SignatureMetadata(BaseModel):
 
     reason: str | None = Field(default=None, max_length=256, description="Reason for signing")
     location: str | None = Field(default=None, max_length=256, description="Location of signing")
-    contact_info: str | None = Field(default=None, max_length=256, description="Contact information")
+    contact_info: str | None = Field(
+        default=None, max_length=256, description="Contact information"
+    )
 
 
 class PDFSignRequest(BaseModel):
@@ -108,7 +110,9 @@ class SignatureVerificationResult(BaseModel):
     field_name: str = Field(description="Name of the signature field")
     valid: bool = Field(description="Whether the signature is cryptographically valid")
     trusted: bool = Field(description="Whether the signature chain is trusted")
-    docmdp_ok: bool | None = Field(default=None, description="Whether document modifications are permitted")
+    docmdp_ok: bool | None = Field(
+        default=None, description="Whether document modifications are permitted"
+    )
     modification_level: str | None = Field(
         default=None,
         description="Permitted modification level detected for the document",
@@ -117,8 +121,12 @@ class SignatureVerificationResult(BaseModel):
         default=None,
         description="Signing time reported by the signer, if available",
     )
-    signer_common_name: str | None = Field(default=None, description="Common name from the signer certificate")
-    signer_serial_number: str | None = Field(default=None, description="Serial number of the signer certificate")
+    signer_common_name: str | None = Field(
+        default=None, description="Common name from the signer certificate"
+    )
+    signer_serial_number: str | None = Field(
+        default=None, description="Serial number of the signer certificate"
+    )
     summary: str = Field(description="Human-readable summary of the verification result")
     timestamp_trusted: bool | None = Field(
         default=None,
@@ -132,7 +140,9 @@ class SignatureVerificationResult(BaseModel):
         default=None,
         description="Summary describing the timestamp validation",
     )
-    error: str | None = Field(default=None, description="Error message recorded during validation, if any")
+    error: str | None = Field(
+        default=None, description="Error message recorded during validation, if any"
+    )
 
 
 class PDFVerificationResponse(BaseModel):

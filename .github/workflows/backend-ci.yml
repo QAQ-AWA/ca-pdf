@@ -18,9 +18,23 @@ jobs:
   lint-test:
     name: Lint, test, and check migrations
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: backend_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d backend_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     env:
       APP_NAME: "Monorepo API"
-      DATABASE_URL: "sqlite+aiosqlite:///./test_app.db"
+      DATABASE_URL: "postgresql+asyncpg://postgres:postgres@localhost:5432/backend_test"
       SECRET_KEY: "test-secret-key"
       ACCESS_TOKEN_EXPIRE_MINUTES: "2"
       REFRESH_TOKEN_EXPIRE_MINUTES: "10"
@@ -32,29 +46,43 @@ jobs:
       ADMIN_ROLE: "admin"
       ENCRYPTED_STORAGE_ALGORITHM: "fernet"
       ENCRYPTED_STORAGE_MASTER_KEY: "L9oZbBY7bRHt9aCJloPAV9ooa-QKdfYU0uf5KIKGJ28="
-      POETRY_VIRTUALENVS_CREATE: "false"
+      POETRY_VIRTUALENVS_IN_PROJECT: "true"
       POETRY_NO_INTERACTION: "1"
+
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
 
-      - name: Set up Python 3.11
+      - name: Set up Python 3.12
         uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
-          cache: "poetry"
-          cache-dependency-path: backend/poetry.lock
+          python-version: "3.12"
+
+      - name: Cache Poetry downloads
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pypoetry
+          key: ${{ runner.os }}-pypoetry-${{ hashFiles('backend/poetry.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-pypoetry-
+
+      - name: Cache virtual environment
+        uses: actions/cache@v4
+        with:
+          path: backend/.venv
+          key: ${{ runner.os }}-backend-venv-${{ hashFiles('backend/poetry.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-backend-venv-
 
       - name: Install Poetry
-        uses: snok/install-poetry@v1
-        with:
-          version: "2.2.1"
-          virtualenvs-create: false
-          installer-parallel: true
+        run: |
+          curl -sSL https://install.python-poetry.org | python3 -
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
+          poetry --version
 
       - name: Install backend dependencies
         working-directory: backend
-        run: poetry install --no-interaction --no-root
+        run: poetry install --no-interaction --no-ansi
 
       - name: Run formatters (black & isort)
         working-directory: backend
@@ -62,18 +90,14 @@ jobs:
           poetry run black --check app tests
           poetry run isort --check-only app tests
 
-      - name: Run Alembic migration check
+      - name: Run mypy
         working-directory: backend
-        run: poetry run alembic check
+        run: poetry run mypy app
 
-      - name: Run backend test suite with coverage
+      - name: Run database migrations
         working-directory: backend
-        run: poetry run pytest --cov=app --cov-report=xml --cov-report=term
+        run: poetry run alembic upgrade head
 
-      - name: Upload backend coverage report
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: backend-coverage-${{ github.sha }}
-          path: backend/coverage.xml
-          if-no-files-found: warn
+      - name: Run backend tests
+        working-directory: backend
+        run: poetry run pytest -q

@@ -28,7 +28,7 @@ async def create_audit_log(
         actor_id=actor_id,
         event_type=event_type,
         resource=resource,
-        metadata=metadata,
+        meta=metadata,
         message=message,
         ip_address=ip_address,
         user_agent=user_agent,
@@ -65,7 +65,7 @@ async def list_audit_logs(
     if actor_id is not None:
         conditions.append(AuditLog.actor_id == actor_id)
 
-    base_query: Select[Any] = select(AuditLog)
+    base_query: Select[tuple[AuditLog]] = select(AuditLog)
     if conditions:
         base_query = base_query.where(*conditions)
 

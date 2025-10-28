@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
-from typing import Literal
+from typing import Any, Literal, cast
 from uuid import uuid4
 
 from jose import JWTError, jwt
@@ -23,16 +23,20 @@ class InvalidTokenError(Exception):
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     """Return True if the provided password matches the stored hash."""
 
-    return pwd_context.verify(plain_password, hashed_password)
+    verified = cast(bool, pwd_context.verify(plain_password, hashed_password))
+    return verified
 
 
 def get_password_hash(password: str) -> str:
     """Hash a plaintext password using bcrypt."""
 
-    return pwd_context.hash(password)
+    hashed = cast(str, pwd_context.hash(password))
+    return hashed
 
 
-def _create_token(*, subject: str, role: str, token_type: TokenType, expires_delta: timedelta) -> str:
+def _create_token(
+    *, subject: str, role: str, token_type: TokenType, expires_delta: timedelta
+) -> str:
     expiration = datetime.now(tz=timezone.utc) + expires_delta
     to_encode = {
         "exp": expiration,
@@ -48,23 +52,31 @@ def create_access_token(*, subject: str, role: str) -> str:
     """Create a signed JWT access token for the given subject."""
 
     expires_delta = timedelta(minutes=settings.access_token_expire_minutes)
-    return _create_token(subject=subject, role=role, token_type="access", expires_delta=expires_delta)
+    return _create_token(
+        subject=subject, role=role, token_type="access", expires_delta=expires_delta
+    )
 
 
 def create_refresh_token(*, subject: str, role: str) -> str:
     """Create a signed JWT refresh token for the given subject."""
 
     expires_delta = timedelta(minutes=settings.refresh_token_expire_minutes)
-    return _create_token(subject=subject, role=role, token_type="refresh", expires_delta=expires_delta)
+    return _create_token(
+        subject=subject, role=role, token_type="refresh", expires_delta=expires_delta
+    )
 
 
 def decode_token(token: str) -> TokenPayload:
     """Decode a JWT and return its payload if valid."""
 
     try:
-        payload = jwt.decode(token, settings.secret_key, algorithms=[settings.jwt_algorithm])
+        decoded_payload = jwt.decode(
+            token, settings.secret_key, algorithms=[settings.jwt_algorithm]
+        )
     except JWTError as exc:  # pragma: no cover - protective branch
         raise InvalidTokenError("Token decode failed") from exc
+
+    payload = cast(dict[str, Any], decoded_payload)
 
     try:
         return TokenPayload(**payload)
