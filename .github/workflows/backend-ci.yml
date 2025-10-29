@@ -57,19 +57,30 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Upgrade pip
-        run: python -m pip install --upgrade pip
-
-      - name: Install Poetry
+      - name: Install Poetry via pip and expose scripts path
+        shell: bash
         run: |
-          curl -sSL https://install.python-poetry.org | python3 -
-          echo "$HOME/.local/bin" >> $GITHUB_PATH
+          python -m pip install --upgrade pip
+          python -m pip install poetry==1.8.3
+          SCRIPTS_DIR=$(python - <<'PY'
+import sysconfig
+print(sysconfig.get_path('scripts'))
+PY
+)
+          echo "Poetry scripts dir: $SCRIPTS_DIR"
+          echo "$SCRIPTS_DIR" >> $GITHUB_PATH
+          poetry --version
 
-      - name: Poetry diagnostics
+      - name: Verify Poetry installation
+        shell: bash
         run: |
           echo "PATH=$PATH"
-          command -v poetry || true
-          ls -la $HOME/.local/bin || true
+          if ! command -v poetry >/dev/null 2>&1; then
+            echo "Poetry CLI not found on PATH" >&2
+            exit 1
+          fi
+          which poetry
+          poetry --version
 
       - name: Cache Poetry virtualenv
         uses: actions/cache@v4
@@ -83,17 +94,17 @@ jobs:
 
       - name: Install backend dependencies
         working-directory: backend
-        run: python -m poetry install --no-interaction --no-ansi
+        run: poetry install --no-interaction --no-ansi
 
       - name: Run formatters (black & isort)
         working-directory: backend
         run: |
-          python -m poetry run black --check app tests
-          python -m poetry run isort --check-only app tests
+          poetry run black --check app tests
+          poetry run isort --check-only app tests
 
       - name: Run type checks
         working-directory: backend
-        run: python -m poetry run mypy app
+        run: poetry run mypy app
 
       - name: Wait for database
         run: |
@@ -112,11 +123,11 @@ jobs:
 
       - name: Run Alembic migrations
         working-directory: backend
-        run: python -m poetry run alembic upgrade head
+        run: poetry run alembic upgrade head
 
       - name: Run backend test suite
         working-directory: backend
-        run: python -m poetry run pytest -q --cov=app --cov-report=xml --cov-report=term
+        run: poetry run pytest -q --cov=app --cov-report=xml --cov-report=term
 
       - name: Upload backend coverage report
         if: always()
