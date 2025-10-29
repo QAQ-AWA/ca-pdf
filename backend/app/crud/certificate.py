@@ -48,7 +48,9 @@ async def create_certificate(
     return certificate
 
 
-async def get_certificate_by_id(*, session: AsyncSession, certificate_id: UUID) -> Certificate | None:
+async def get_certificate_by_id(
+    *, session: AsyncSession, certificate_id: UUID
+) -> Certificate | None:
     """Return a certificate by its identifier."""
 
     statement = select(Certificate).where(Certificate.id == certificate_id)
@@ -56,7 +58,9 @@ async def get_certificate_by_id(*, session: AsyncSession, certificate_id: UUID) 
     return result.scalar_one_or_none()
 
 
-async def get_certificate_by_serial(*, session: AsyncSession, serial_number: str) -> Certificate | None:
+async def get_certificate_by_serial(
+    *, session: AsyncSession, serial_number: str
+) -> Certificate | None:
     """Return a certificate by its serial number."""
 
     statement = select(Certificate).where(Certificate.serial_number == serial_number)
@@ -74,7 +78,9 @@ async def list_certificates_for_owner(
 
     statement = select(Certificate).where(Certificate.owner_id == owner_id)
     if not include_inactive:
-        statement = statement.where(Certificate.status == CertificateStatus.ACTIVE.value)
+        statement = statement.where(
+            Certificate.status == CertificateStatus.ACTIVE.value
+        )
     statement = statement.order_by(Certificate.created_at.desc())
     statement = statement.options(selectinload(Certificate.certificate_file))
     result = await session.execute(statement)
@@ -84,7 +90,9 @@ async def list_certificates_for_owner(
 async def list_revoked_certificates(*, session: AsyncSession) -> list[Certificate]:
     """Return all revoked certificates."""
 
-    statement = select(Certificate).where(Certificate.status == CertificateStatus.REVOKED.value)
+    statement = select(Certificate).where(
+        Certificate.status == CertificateStatus.REVOKED.value
+    )
     statement = statement.order_by(Certificate.updated_at.desc())
     result = await session.execute(statement)
     return list(result.scalars().all())

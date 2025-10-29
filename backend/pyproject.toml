@@ -38,19 +38,20 @@ pytest-cov = "^7.0.0"
 types-passlib = "^1.7.7.20240311"
 types-python-jose = "^3.3.4.20240106"
 types-requests = "^2.32.0.20240906"
+pre-commit = "^4.3.0"
 
 [build-system]
 requires = ["poetry-core>=1.5.0"]
 build-backend = "poetry.core.masonry.api"
 
 [tool.black]
-line-length = 100
+line-length = 88
 preview = true
 target-version = ["py311"]
 
 [tool.isort]
 profile = "black"
-line_length = 100
+line_length = 88
 known_first_party = ["app"]
 
 [tool.mypy]
