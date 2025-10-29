@@ -10,8 +10,8 @@ from pathlib import Path
 from typing import BinaryIO
 from uuid import UUID, uuid4
 
-from asn1crypto import keys as asn1_keys
-from asn1crypto import x509 as asn1_x509  # type: ignore[import-untyped]
+from asn1crypto import keys as asn1_keys  # type: ignore[import-untyped]
+from asn1crypto import x509 as asn1_x509
 from cryptography import x509
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.serialization import pkcs12

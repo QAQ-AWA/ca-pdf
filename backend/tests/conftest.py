@@ -35,7 +35,6 @@ from app.main import create_application
 
 # Ensure settings and database connections are refreshed based on test environment
 reload_settings()
-asyncio.run(refresh_session_factory())
 
 if settings.async_database_url.startswith("sqlite"):
     db_uri = settings.async_database_url.replace("sqlite+aiosqlite:///", "")
@@ -49,20 +48,29 @@ import app.main as app_main
 app_main.app = create_application()
 
 
-@pytest.fixture(autouse=True)
+@pytest.fixture(scope="function", autouse=True)
 async def reset_state() -> AsyncGenerator[None, None]:
     """Reset database schema and rate limiter state before each test."""
 
+    await refresh_session_factory()
     engine = get_engine()
+
     async with engine.begin() as connection:
         await connection.run_sync(Base.metadata.drop_all)
         await connection.run_sync(Base.metadata.create_all)
 
     await bootstrap_admin()
     await _auth_rate_limiter.reset()
+
     yield
-    async with engine.begin() as connection:
-        await connection.run_sync(Base.metadata.drop_all)
+
+    # Cleanup after test
+    try:
+        async with engine.begin() as connection:
+            await connection.run_sync(Base.metadata.drop_all)
+    finally:
+        # Dispose of engine to close all connections
+        await engine.dispose(close=True)
 
 
 @pytest.fixture()
