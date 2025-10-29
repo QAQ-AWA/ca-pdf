@@ -559,7 +559,7 @@ async def verify_pdf(
         actor_id=current_user.id,
         event_type="pdf.signature.verified",
         resource="pdf",
-        metadata={
+        meta={
             "total_signatures": report.total_signatures,
             "valid_signatures": report.valid_signatures,
             "trusted_signatures": report.trusted_signatures,

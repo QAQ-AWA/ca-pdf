@@ -197,13 +197,25 @@ class PDFVerificationService:
         if isinstance(timestamp_status, TimestampSignatureStatus):
             timestamp_trusted = bool(timestamp_status.trusted)
             timestamp_time = timestamp_status.timestamp
-            timestamp_summary = timestamp_status.summary
+            summary_callable = getattr(timestamp_status, "summary", None)
+            if callable(summary_callable):
+                timestamp_summary = str(summary_callable())
+            elif summary_callable is not None:
+                timestamp_summary = str(summary_callable)
 
         modification_level: str | None = None
         if isinstance(status.modification_level, ModificationLevel):
             modification_level = status.modification_level.name.lower()
         elif status.modification_level is not None:
             modification_level = str(status.modification_level)
+
+        summary_attr = getattr(status, "summary", None)
+        if callable(summary_attr):
+            summary_text = str(summary_attr())
+        elif summary_attr is not None:
+            summary_text = str(summary_attr)
+        else:
+            summary_text = ""
 
         return SignatureVerificationDetails(
             field_name=embedded_signature.field_name,
@@ -214,7 +226,7 @@ class PDFVerificationService:
             signing_time=status.signer_reported_dt,
             signer_common_name=signer_common_name,
             signer_serial_number=signer_serial,
-            summary=status.summary,
+            summary=summary_text,
             timestamp_trusted=timestamp_trusted,
             timestamp_time=timestamp_time,
             timestamp_summary=timestamp_summary,
