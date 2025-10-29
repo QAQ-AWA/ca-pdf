@@ -18,9 +18,23 @@ jobs:
   lint-test:
     name: Lint, test, and check migrations
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15
+        ports:
+          - 5432:5432
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: backend
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     env:
       APP_NAME: "Monorepo API"
-      DATABASE_URL: "sqlite+aiosqlite:///./test_app.db"
+      DATABASE_URL: "postgresql+asyncpg://postgres:postgres@127.0.0.1:5432/backend"
       SECRET_KEY: "test-secret-key"
       ACCESS_TOKEN_EXPIRE_MINUTES: "2"
       REFRESH_TOKEN_EXPIRE_MINUTES: "10"
@@ -32,33 +46,44 @@ jobs:
       ADMIN_ROLE: "admin"
       ENCRYPTED_STORAGE_ALGORITHM: "fernet"
       ENCRYPTED_STORAGE_MASTER_KEY: "L9oZbBY7bRHt9aCJloPAV9ooa-QKdfYU0uf5KIKGJ28="
-      POETRY_VIRTUALENVS_CREATE: "false"
+      POETRY_VIRTUALENVS_IN_PROJECT: "true"
       POETRY_NO_INTERACTION: "1"
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
 
-      - name: Set up Python 3.11
+      - name: Set up Python 3.12
         uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
-          cache: "poetry"
-          cache-dependency-path: backend/poetry.lock
+          python-version: "3.12"
+
+      - name: Upgrade pip
+        run: python -m pip install --upgrade pip
 
       - name: Install Poetry
-        working-directory: backend
         run: |
-          python -m pip install --upgrade pip
-          python -m pip install poetry
-          echo "$HOME/.local/bin" >> $GITHUB_PATH || true
+          curl -sSL https://install.python-poetry.org | python3 -
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
 
-      - name: Show Poetry version
-        working-directory: backend
-        run: poetry --version
+      - name: Poetry diagnostics
+        run: |
+          echo "PATH=$PATH"
+          command -v poetry || true
+          ls -la $HOME/.local/bin || true
+
+      - name: Cache Poetry virtualenv
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/pypoetry
+            backend/.venv
+          key: ${{ runner.os }}-backend-${{ hashFiles('backend/poetry.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-backend-
 
       - name: Install backend dependencies
         working-directory: backend
-        run: python -m poetry install --no-interaction --no-root
+        run: python -m poetry install --no-interaction --no-ansi
 
       - name: Run formatters (black & isort)
         working-directory: backend
@@ -66,13 +91,32 @@ jobs:
           python -m poetry run black --check app tests
           python -m poetry run isort --check-only app tests
 
-      - name: Run Alembic migration check
+      - name: Run type checks
         working-directory: backend
-        run: python -m poetry run alembic check
+        run: python -m poetry run mypy app
 
-      - name: Run backend test suite with coverage
+      - name: Wait for database
+        run: |
+          for attempt in {1..20}; do
+            if pg_isready -h 127.0.0.1 -p 5432 -U postgres; then
+              echo "Database is ready"
+              exit 0
+            fi
+            echo "Database is not ready yet. Waiting..."
+            sleep 3
+          done
+          echo "Database did not become ready in time." >&2
+          exit 1
+        env:
+          PGPASSWORD: postgres
+
+      - name: Run Alembic migrations
         working-directory: backend
-        run: python -m poetry run pytest --cov=app --cov-report=xml --cov-report=term
+        run: python -m poetry run alembic upgrade head
+
+      - name: Run backend test suite
+        working-directory: backend
+        run: python -m poetry run pytest -q --cov=app --cov-report=xml --cov-report=term
 
       - name: Upload backend coverage report
         if: always()
