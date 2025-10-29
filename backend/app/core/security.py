@@ -33,7 +33,9 @@ def get_password_hash(password: str) -> str:
     return cast(str, hashed)
 
 
-def _create_token(*, subject: str, role: str, token_type: TokenType, expires_delta: timedelta) -> str:
+def _create_token(
+    *, subject: str, role: str, token_type: TokenType, expires_delta: timedelta
+) -> str:
     expiration = datetime.now(tz=timezone.utc) + expires_delta
     to_encode = {
         "exp": expiration,
@@ -50,21 +52,27 @@ def create_access_token(*, subject: str, role: str) -> str:
     """Create a signed JWT access token for the given subject."""
 
     expires_delta = timedelta(minutes=settings.access_token_expire_minutes)
-    return _create_token(subject=subject, role=role, token_type="access", expires_delta=expires_delta)
+    return _create_token(
+        subject=subject, role=role, token_type="access", expires_delta=expires_delta
+    )
 
 
 def create_refresh_token(*, subject: str, role: str) -> str:
     """Create a signed JWT refresh token for the given subject."""
 
     expires_delta = timedelta(minutes=settings.refresh_token_expire_minutes)
-    return _create_token(subject=subject, role=role, token_type="refresh", expires_delta=expires_delta)
+    return _create_token(
+        subject=subject, role=role, token_type="refresh", expires_delta=expires_delta
+    )
 
 
 def decode_token(token: str) -> TokenPayload:
     """Decode a JWT and return its payload if valid."""
 
     try:
-        decoded = jwt.decode(token, settings.secret_key, algorithms=[settings.jwt_algorithm])
+        decoded = jwt.decode(
+            token, settings.secret_key, algorithms=[settings.jwt_algorithm]
+        )
     except JWTError as exc:  # pragma: no cover - protective branch
         raise InvalidTokenError("Token decode failed") from exc
 

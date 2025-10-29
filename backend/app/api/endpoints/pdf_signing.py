@@ -8,7 +8,16 @@ from typing import Any
 from urllib.parse import quote
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile, status
+from fastapi import (
+    APIRouter,
+    Depends,
+    File,
+    Form,
+    HTTPException,
+    Request,
+    UploadFile,
+    status,
+)
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -33,12 +42,12 @@ from app.services.pdf_signing import (
     PDFSigningService,
     PDFValidationError,
     SealNotFoundError,
-    SignatureCoordinates as ServiceCoordinates,
-    SignatureError,
-    SignatureMetadata as ServiceMetadata,
-    SignatureVisibility as ServiceVisibility,
-    SigningResult,
 )
+from app.services.pdf_signing import SignatureCoordinates as ServiceCoordinates
+from app.services.pdf_signing import SignatureError
+from app.services.pdf_signing import SignatureMetadata as ServiceMetadata
+from app.services.pdf_signing import SignatureVisibility as ServiceVisibility
+from app.services.pdf_signing import SigningResult
 from app.services.pdf_verification import (
     PDFVerificationError,
     PDFVerificationInputError,
@@ -49,7 +58,9 @@ from app.services.pdf_verification import (
 router = APIRouter(prefix="/pdf", tags=["pdf-signing"])
 
 
-def _convert_coordinates(coords: SignatureCoordinates | None) -> ServiceCoordinates | None:
+def _convert_coordinates(
+    coords: SignatureCoordinates | None,
+) -> ServiceCoordinates | None:
     """Convert API coordinates to service coordinates."""
     if coords is None:
         return None
@@ -118,10 +129,18 @@ async def sign_pdf(
     pdf_file: UploadFile = File(..., description="PDF file to sign"),
     certificate_id: str = Form(..., description="Certificate UUID"),
     seal_id: str | None = Form(default=None, description="Seal UUID (optional)"),
-    visibility: str = Form(default="invisible", description="Signature visibility (visible/invisible)"),
-    page: int | None = Form(default=None, description="Page number for visible signature (1-based)"),
-    x: float | None = Form(default=None, description="X coordinate for visible signature"),
-    y: float | None = Form(default=None, description="Y coordinate for visible signature"),
+    visibility: str = Form(
+        default="invisible", description="Signature visibility (visible/invisible)"
+    ),
+    page: int | None = Form(
+        default=None, description="Page number for visible signature (1-based)"
+    ),
+    x: float | None = Form(
+        default=None, description="X coordinate for visible signature"
+    ),
+    y: float | None = Form(
+        default=None, description="Y coordinate for visible signature"
+    ),
     width: float | None = Form(default=None, description="Width of signature box"),
     height: float | None = Form(default=None, description="Height of signature box"),
     reason: str | None = Form(default=None, description="Reason for signing"),
@@ -181,15 +200,22 @@ async def sign_pdf(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Visible signatures require page, x, y, width, and height",
             )
-        coordinates = SignatureCoordinates(page=page, x=x, y=y, width=width, height=height)
+        coordinates = SignatureCoordinates(
+            page=page, x=x, y=y, width=width, height=height
+        )
 
     metadata: SignatureMetadata | None = None
     if reason or location or contact_info:
-        metadata = SignatureMetadata(reason=reason, location=location, contact_info=contact_info)
+        metadata = SignatureMetadata(
+            reason=reason, location=location, contact_info=contact_info
+        )
 
     original_filename = pdf_file.filename or "document.pdf"
     base_name = Path(original_filename).stem or "document"
-    sanitized_base = base_name.replace("\\", "_").replace("/", "_").replace("\"", "").strip() or "document"
+    sanitized_base = (
+        base_name.replace("\\", "_").replace("/", "_").replace('"', "").strip()
+        or "document"
+    )
     signed_filename = f"{sanitized_base}-signed.pdf"
 
     service = PDFSigningService()
@@ -278,7 +304,9 @@ async def batch_sign_pdfs(
     certificate_id: str = Form(..., description="Certificate UUID"),
     seal_id: str | None = Form(default=None, description="Seal UUID (optional)"),
     visibility: str = Form(default="invisible", description="Signature visibility"),
-    page: int | None = Form(default=None, description="Page number for visible signature"),
+    page: int | None = Form(
+        default=None, description="Page number for visible signature"
+    ),
     x: float | None = Form(default=None, description="X coordinate"),
     y: float | None = Form(default=None, description="Y coordinate"),
     width: float | None = Form(default=None, description="Width"),
@@ -332,11 +360,15 @@ async def batch_sign_pdfs(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Visible signatures require coordinates",
             )
-        coordinates = SignatureCoordinates(page=page, x=x, y=y, width=width, height=height)
+        coordinates = SignatureCoordinates(
+            page=page, x=x, y=y, width=width, height=height
+        )
 
     metadata: SignatureMetadata | None = None
     if reason or location or contact_info:
-        metadata = SignatureMetadata(reason=reason, location=location, contact_info=contact_info)
+        metadata = SignatureMetadata(
+            reason=reason, location=location, contact_info=contact_info
+        )
 
     pdfs: list[tuple[str, bytes]] = []
     for pdf_file in pdf_files:
@@ -443,7 +475,9 @@ async def batch_sign_pdfs(
             "visibility": sig_visibility.value,
             "tsa_used": use_tsa,
             "ltv_embedded": embed_ltv,
-            "document_ids": [item.document_id for item in result_items if item.document_id],
+            "document_ids": [
+                item.document_id for item in result_items if item.document_id
+            ],
         },
     )
 
@@ -476,11 +510,17 @@ async def verify_pdf(
     verification_service = PDFVerificationService()
 
     try:
-        report = await verification_service.verify_pdf(session=session, pdf_data=pdf_data)
+        report = await verification_service.verify_pdf(
+            session=session, pdf_data=pdf_data
+        )
     except PDFVerificationInputError as exc:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)
+        ) from exc
     except PDFVerificationRootCAError as exc:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail=str(exc)
+        ) from exc
     except PDFVerificationError as exc:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

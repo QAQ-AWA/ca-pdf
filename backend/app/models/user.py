@@ -21,7 +21,9 @@ class User(Base):
     __tablename__ = "users"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
-    email: Mapped[str] = mapped_column(String(255), unique=True, nullable=False, index=True)
+    email: Mapped[str] = mapped_column(
+        String(255), unique=True, nullable=False, index=True
+    )
     hashed_password: Mapped[str] = mapped_column(String(255), nullable=False)
     _role_slug: Mapped[str] = mapped_column(
         "role",
@@ -31,7 +33,9 @@ class User(Base):
         default=UserRole.USER.value,
     )
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
-    last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    last_login_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
@@ -77,9 +81,13 @@ class TokenBlocklist(Base):
     __tablename__ = "token_blocklist"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
-    jti: Mapped[str] = mapped_column(String(64), nullable=False, unique=True, index=True)
+    jti: Mapped[str] = mapped_column(
+        String(64), nullable=False, unique=True, index=True
+    )
     token_type: Mapped[str] = mapped_column(String(16), nullable=False)
-    user_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("users.id", ondelete="SET NULL"))
+    user_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("users.id", ondelete="SET NULL")
+    )
     revoked_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,

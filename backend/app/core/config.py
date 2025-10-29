@@ -7,7 +7,14 @@ from pathlib import Path
 from typing import Any, Sequence
 
 from cryptography.fernet import Fernet
-from pydantic import EmailStr, Field, PrivateAttr, SecretStr, field_validator, model_validator
+from pydantic import (
+    EmailStr,
+    Field,
+    PrivateAttr,
+    SecretStr,
+    field_validator,
+    model_validator,
+)
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from sqlalchemy.engine import make_url
 
@@ -42,8 +49,12 @@ class Settings(BaseSettings):
 
     secret_key: str = Field(default="change-me", alias="SECRET_KEY")
     jwt_algorithm: str = Field(default="HS256", alias="JWT_ALGORITHM")
-    access_token_expire_minutes: int = Field(default=15, alias="ACCESS_TOKEN_EXPIRE_MINUTES")
-    refresh_token_expire_minutes: int = Field(default=60 * 24 * 3, alias="REFRESH_TOKEN_EXPIRE_MINUTES")
+    access_token_expire_minutes: int = Field(
+        default=15, alias="ACCESS_TOKEN_EXPIRE_MINUTES"
+    )
+    refresh_token_expire_minutes: int = Field(
+        default=60 * 24 * 3, alias="REFRESH_TOKEN_EXPIRE_MINUTES"
+    )
 
     backend_cors_origins: list[str] = Field(
         default_factory=lambda: ["*"],
@@ -51,7 +62,9 @@ class Settings(BaseSettings):
     )
 
     auth_rate_limit_requests: int = Field(default=5, alias="AUTH_RATE_LIMIT_REQUESTS")
-    auth_rate_limit_window_seconds: int = Field(default=60, alias="AUTH_RATE_LIMIT_WINDOW_SECONDS")
+    auth_rate_limit_window_seconds: int = Field(
+        default=60, alias="AUTH_RATE_LIMIT_WINDOW_SECONDS"
+    )
 
     admin_email: EmailStr | None = Field(default=None, alias="ADMIN_EMAIL")
     admin_password: str | None = Field(default=None, alias="ADMIN_PASSWORD")
@@ -113,7 +126,12 @@ class Settings(BaseSettings):
     def _normalize_database_url(cls, value: str) -> str:
         return cls._transform_database_driver(value, ensure_async=True)
 
-    @field_validator("private_key_max_bytes", "seal_image_max_bytes", "pdf_max_bytes", "pdf_batch_max_count")
+    @field_validator(
+        "private_key_max_bytes",
+        "seal_image_max_bytes",
+        "pdf_max_bytes",
+        "pdf_batch_max_count",
+    )
     @classmethod
     def _validate_positive_int(cls, value: int) -> int:
         if value <= 0:
@@ -137,7 +155,9 @@ class Settings(BaseSettings):
                 raw_value = candidate
         if self.encrypted_storage_master_key_path is not None:
             try:
-                file_value = self.encrypted_storage_master_key_path.read_text(encoding="utf-8").strip()
+                file_value = self.encrypted_storage_master_key_path.read_text(
+                    encoding="utf-8"
+                ).strip()
             except FileNotFoundError as exc:
                 raise ValueError(
                     f"Encrypted storage master key path does not exist: {self.encrypted_storage_master_key_path}",
@@ -163,9 +183,13 @@ class Settings(BaseSettings):
             try:
                 decoded = base64.urlsafe_b64decode(raw_value)
             except Exception as exc:  # pragma: no cover - defensive validation branch
-                raise ValueError("Invalid AES-GCM master key encoding; expected URL-safe base64") from exc
+                raise ValueError(
+                    "Invalid AES-GCM master key encoding; expected URL-safe base64"
+                ) from exc
             if len(decoded) not in (16, 24, 32):
-                raise ValueError("AES-GCM master key must be 128, 192, or 256 bits in length")
+                raise ValueError(
+                    "AES-GCM master key must be 128, 192, or 256 bits in length"
+                )
             self._master_key_bytes = decoded
 
         return self

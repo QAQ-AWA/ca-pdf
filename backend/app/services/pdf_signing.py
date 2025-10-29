@@ -107,7 +107,9 @@ class PDFSigningService:
         self._storage = storage_service or EncryptedStorageService()
         self._tsa = tsa_client or TSAClient()
         self._pdf_max_bytes = settings.pdf_max_bytes
-        self._allowed_content_types = {ct.lower() for ct in settings.pdf_allowed_content_types}
+        self._allowed_content_types = {
+            ct.lower() for ct in settings.pdf_allowed_content_types
+        }
 
     async def sign_pdf(
         self,
@@ -350,7 +352,9 @@ class PDFSigningService:
                 ).public_bytes(serialization.Encoding.DER)
             )
         except Exception as exc:
-            raise CertificateInvalidError(f"Failed to parse certificate: {exc}") from exc
+            raise CertificateInvalidError(
+                f"Failed to parse certificate: {exc}"
+            ) from exc
 
         try:
             asn1_key = asn1_keys.PrivateKeyInfo.load(
@@ -364,7 +368,9 @@ class PDFSigningService:
                 )
             )
         except Exception as exc:
-            raise CertificateInvalidError(f"Failed to parse private key: {exc}") from exc
+            raise CertificateInvalidError(
+                f"Failed to parse private key: {exc}"
+            ) from exc
 
         cert_registry = SimpleCertificateStore()
 
@@ -403,7 +409,7 @@ class PDFSigningService:
             )
 
             output = io.BytesIO()
-            
+
             if visibility == SignatureVisibility.VISIBLE and coordinates:
                 sig_field = fields.SigFieldSpec(
                     sig_field_name="Signature",
@@ -417,7 +423,7 @@ class PDFSigningService:
                 )
 
                 fields.append_signature_field(writer, sig_field)
-                
+
                 signers.sign_pdf(
                     writer,
                     signature_meta=sig_meta,
@@ -432,7 +438,7 @@ class PDFSigningService:
                     signer=signer,
                     output=output,
                 )
-            
+
             return output.getvalue()
 
         except Exception as exc:

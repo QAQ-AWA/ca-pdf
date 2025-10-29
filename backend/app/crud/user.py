@@ -44,7 +44,9 @@ async def create_user(
     return user
 
 
-async def authenticate_user(*, session: AsyncSession, email: str, password: str) -> User | None:
+async def authenticate_user(
+    *, session: AsyncSession, email: str, password: str
+) -> User | None:
     """Return the user if the provided credentials are valid."""
 
     user = await get_user_by_email(session=session, email=email)
@@ -57,7 +59,9 @@ async def authenticate_user(*, session: AsyncSession, email: str, password: str)
     return user
 
 
-async def ensure_admin_user(*, session: AsyncSession, email: str, password: str, role: str) -> User:
+async def ensure_admin_user(
+    *, session: AsyncSession, email: str, password: str, role: str
+) -> User:
     """Create or update the initial administrator account."""
 
     try:
