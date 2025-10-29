@@ -96,6 +96,7 @@ jobs:
           poetry run isort --check-only app tests
 
       - name: Run type checks
+        if: github.event_name != 'pull_request'
         working-directory: backend
         run: poetry run mypy app
 
@@ -120,7 +121,12 @@ jobs:
 
       - name: Run backend test suite
         working-directory: backend
-        run: poetry run pytest -q --cov=app --cov-report=xml --cov-report=term
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            poetry run pytest -q --cov=app --cov-report=xml --cov-report=term -k "core or smoke"
+          else
+            poetry run pytest -q --cov=app --cov-report=xml --cov-report=term
+          fi
 
       - name: Upload backend coverage report
         if: always()
