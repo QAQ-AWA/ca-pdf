@@ -154,7 +154,7 @@ const PdfPreviewComponent = ({
   }, [documentId, file, onPageMetrics, reset]);
 
   useEffect(() => {
-    const render = async () => {
+    const renderPages = async () => {
       for (const pageRecord of pages) {
         const canvas = canvasRefs.current.get(pageRecord.pageNumber);
         const resources = pdfResources.current.get(pageRecord.pageNumber);
@@ -185,7 +185,7 @@ const PdfPreviewComponent = ({
       }
     };
 
-    void render();
+    void renderPages();
   }, [pages]);
 
   const handleOverlayPointerDown = useCallback(
