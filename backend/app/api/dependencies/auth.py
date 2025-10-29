@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
@@ -70,7 +70,7 @@ async def get_current_user(
     return user
 
 
-def require_roles(*roles: UserRole | str) -> Callable[..., User]:
+def require_roles(*roles: UserRole | str) -> Callable[..., Awaitable[User]]:
     """Return a dependency that validates the current user has one of the required roles."""
 
     allowed_roles = {

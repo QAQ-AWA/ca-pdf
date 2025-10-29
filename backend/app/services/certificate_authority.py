@@ -234,7 +234,7 @@ class CertificateAuthorityService:
             actor_id=actor_id,
             event_type="ca.root.created",
             resource="root-ca",
-            metadata={
+            meta={
                 "artifact_id": str(artifact.id),
                 "algorithm": algorithm.value,
                 "serial_number": serial_hex,
@@ -358,6 +358,7 @@ class CertificateAuthorityService:
         )
 
         passphrase_bytes = p12_passphrase.encode("utf-8") if p12_passphrase else None
+        encryption_algorithm: serialization.KeySerializationEncryption
         if passphrase_bytes is not None:
             encryption_algorithm = serialization.BestAvailableEncryption(
                 passphrase_bytes
@@ -400,7 +401,7 @@ class CertificateAuthorityService:
             actor_id=actor_id,
             event_type="ca.certificate.issued",
             resource="certificate",
-            metadata={
+            meta={
                 "certificate_id": str(certificate_record.id),
                 "owner_id": owner_id,
                 "serial_number": serial_hex,
@@ -624,7 +625,7 @@ class CertificateAuthorityService:
             actor_id=actor_id,
             event_type="ca.crl.generated",
             resource="crl",
-            metadata={
+            meta={
                 "artifact_id": str(artifact.id),
                 "revoked_serials": revoked_serials,
             },
@@ -710,6 +711,11 @@ class CertificateAuthorityService:
                 "Stored root private key is invalid"
             ) from exc
 
+        if not isinstance(private_key, (rsa.RSAPrivateKey, ec.EllipticCurvePrivateKey)):
+            raise TypeError(
+                f"Unsupported root private key type: {type(private_key).__name__}"
+            )
+
         return RootMaterial(
             artifact=artifact,
             certificate=certificate,
@@ -743,7 +749,10 @@ class CertificateAuthorityService:
         attributes = certificate.subject.get_attributes_for_oid(NameOID.COMMON_NAME)
         if not attributes:
             return certificate.subject.rfc4514_string()
-        return attributes[0].value
+        value = attributes[0].value
+        if isinstance(value, bytes):
+            return value.decode("utf-8")
+        return str(value)
 
     @staticmethod
     def _resolve_organization(certificate: x509.Certificate) -> str | None:
@@ -752,4 +761,7 @@ class CertificateAuthorityService:
         )
         if not attributes:
             return None
-        return attributes[0].value
+        value = attributes[0].value
+        if isinstance(value, bytes):
+            return value.decode("utf-8")
+        return str(value)
