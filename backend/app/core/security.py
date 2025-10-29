@@ -12,30 +12,6 @@ from passlib.context import CryptContext
 from app.core.config import settings
 from app.schemas.auth import TokenPayload
 
-try:
-    import bcrypt
-except ImportError:  # pragma: no cover - bcrypt backend not available
-    bcrypt = None  # type: ignore[assignment]
-else:
-    _original_hashpw = bcrypt.hashpw
-    _original_checkpw = getattr(bcrypt, "checkpw", None)
-
-    def _hashpw_with_truncation(password: bytes, salt: bytes) -> bytes:
-        if len(password) > 72:
-            password = password[:72]
-        return _original_hashpw(password, salt)
-
-    def _checkpw_with_truncation(password: bytes, hashed: bytes) -> bool:
-        if len(password) > 72:
-            password = password[:72]
-        if _original_checkpw is None:
-            return False
-        return bool(_original_checkpw(password, hashed))
-
-    bcrypt.hashpw = _hashpw_with_truncation  # type: ignore[assignment]
-    if _original_checkpw is not None:
-        bcrypt.checkpw = _checkpw_with_truncation  # type: ignore[assignment]
-
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 TokenType = Literal["access", "refresh"]
 
@@ -60,7 +36,7 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
     return bool(pwd_context.verify(normalized, hashed_password))
 
 
-def get_password_hash(password: str) -> str:
+def hash_password(password: str) -> str:
     """Hash a plaintext password using bcrypt."""
 
     normalized = _normalize_password_for_bcrypt(password)

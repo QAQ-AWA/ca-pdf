@@ -5,7 +5,7 @@ from __future__ import annotations
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.security import get_password_hash, verify_password
+from app.core.security import hash_password, verify_password
 from app.models.role import RoleSlug
 from app.models.user import User, UserRole
 
@@ -35,7 +35,7 @@ async def create_user(
 ) -> User:
     """Create a new user with the supplied credentials."""
 
-    hashed_password = get_password_hash(password)
+    hashed_password = hash_password(password)
     user = User(email=email, hashed_password=hashed_password)
     user.role = role
     session.add(user)
@@ -70,7 +70,7 @@ async def ensure_admin_user(
         normalized_role = RoleSlug.ADMIN
 
     user = await get_user_by_email(session=session, email=email)
-    hashed_password = get_password_hash(password)
+    hashed_password = hash_password(password)
 
     if user is None:
         user = User(
