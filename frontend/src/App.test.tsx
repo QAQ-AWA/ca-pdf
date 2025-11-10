@@ -46,7 +46,7 @@ describe("App routing", () => {
 
     renderApp("/");
 
-    await waitFor(() => expect(screen.getByRole("heading", { name: /overview/i })).toBeInTheDocument());
+    expect(await screen.findByRole("heading", { name: /overview/i })).toBeInTheDocument();
     expect(screen.getByText(/active projects/i)).toBeInTheDocument();
   });
 
