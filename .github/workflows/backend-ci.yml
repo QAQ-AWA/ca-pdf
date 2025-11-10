@@ -18,6 +18,7 @@ jobs:
   lint-test:
     name: Lint, test, and check migrations
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     services:
       postgres:
         image: postgres:15
@@ -91,15 +92,18 @@ jobs:
 
       - name: Run formatters (black & isort)
         working-directory: backend
+        timeout-minutes: 3
         run: |
           poetry run black --check app tests
           poetry run isort --check-only app tests
 
       - name: Run type checks
         working-directory: backend
+        timeout-minutes: 5
         run: poetry run mypy app
 
       - name: Wait for database
+        timeout-minutes: 2
         run: |
           for attempt in {1..20}; do
             if pg_isready -h 127.0.0.1 -p 5432 -U postgres; then
@@ -116,11 +120,13 @@ jobs:
 
       - name: Run Alembic migrations
         working-directory: backend
+        timeout-minutes: 3
         run: poetry run alembic upgrade head
 
       - name: Run backend test suite
         working-directory: backend
-        run: poetry run pytest -q --cov=app --cov-report=xml --cov-report=term
+        timeout-minutes: 10
+        run: poetry run pytest -q --cov=app --cov-report=xml --cov-report=term --tb=short -x
 
       - name: Upload backend coverage report
         if: always()

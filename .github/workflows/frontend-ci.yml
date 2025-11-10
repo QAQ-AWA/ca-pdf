@@ -18,6 +18,7 @@ jobs:
   lint-test:
     name: Lint and test frontend
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -31,15 +32,18 @@ jobs:
 
       - name: Install frontend dependencies
         working-directory: frontend
+        timeout-minutes: 5
         run: npm ci
 
       - name: Run ESLint
         working-directory: frontend
+        timeout-minutes: 3
         run: npm run lint
 
       - name: Run frontend tests with coverage
         working-directory: frontend
-        run: npm run test -- --coverage --coverage.reporter=lcov --coverage.reporter=text-summary
+        timeout-minutes: 5
+        run: npm run test -- --coverage --coverage.reporter=lcov --coverage.reporter=text-summary --reporter=verbose
 
       - name: Upload frontend coverage report
         if: always()
