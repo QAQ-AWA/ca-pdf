@@ -32,7 +32,7 @@ else:
             return False
         return bool(_original_checkpw(password, hashed))
 
-    bcrypt.hashpw = _hashpw_with_truncation  # type: ignore[assignment]
+    bcrypt.hashpw = _hashpw_with_truncation
     if _original_checkpw is not None:
         bcrypt.checkpw = _checkpw_with_truncation  # type: ignore[assignment]
 
