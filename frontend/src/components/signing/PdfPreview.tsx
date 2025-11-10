@@ -171,7 +171,7 @@ const PdfPreviewComponent = ({
         canvas.height = resources.renderViewport.height;
 
         try {
-          const renderTask = resources.page.render({
+          const { render: renderTask } = resources.page.render({
             canvasContext: context,
             viewport: resources.renderViewport,
           });

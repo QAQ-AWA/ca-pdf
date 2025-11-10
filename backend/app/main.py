@@ -1,3 +1,4 @@
+from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -6,10 +7,20 @@ from app.core.config import settings
 from app.db.init_db import bootstrap_admin, init_db
 
 
-def create_application() -> FastAPI:
-    """Create and configure the FastAPI application instance."""
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Manage application lifecycle events."""
+    # Startup
+    await init_db()
+    await bootstrap_admin()
+    yield
+    # Shutdown (if needed)
 
-    application = FastAPI(title=settings.app_name)
+
+def create_application() -> FastAPI:
+    """Create and configure FastAPI application instance."""
+
+    application = FastAPI(title=settings.app_name, lifespan=lifespan)
 
     cors_origins = settings.backend_cors_origins or ["*"]
 
@@ -22,11 +33,6 @@ def create_application() -> FastAPI:
     )
 
     application.include_router(router)
-
-    @application.on_event("startup")
-    async def _on_startup() -> None:
-        await init_db()
-        await bootstrap_admin()
 
     return application
 

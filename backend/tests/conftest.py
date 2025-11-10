@@ -9,7 +9,7 @@ from typing import AsyncGenerator
 
 import pytest
 from cryptography.fernet import Fernet
-from httpx import AsyncClient
+from httpx import AsyncClient, ASGITransport
 
 # Configure environment variables for deterministic tests before importing app modules
 os.environ.setdefault("APP_NAME", "Test API")
@@ -78,6 +78,6 @@ async def client() -> AsyncGenerator[AsyncClient, None]:
     """Provide an asynchronous HTTP client bound to the FastAPI app."""
 
     async with AsyncClient(
-        app=app_main.app, base_url="http://testserver"
+        transport=ASGITransport(app=app_main.app), base_url="http://testserver"
     ) as async_client:
         yield async_client
