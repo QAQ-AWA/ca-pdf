@@ -139,7 +139,7 @@ async def seal_image(db_session: AsyncSession) -> str:
         image_file_id=file_metadata.id,
         image_secret_id=secret.id,
     )
-    return str(seal.id)
+    return seal.id
 
 
 class TestPDFValidation:
