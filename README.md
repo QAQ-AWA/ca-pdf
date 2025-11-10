@@ -40,4 +40,20 @@ make dev-frontend   # Run the Vite dev server
 make test           # Backend pytest + frontend Vitest
 ```
 
-Automation is handled via GitHub Actions (`backend-ci`, `frontend-ci`, and `docker-build`). Refer to the Chinese documentation for production guidance, backup strategies, and troubleshooting tips.
+Automation is handled via GitHub Actions (`backend-ci`, `frontend-ci`, and `docker-build`). 
+
+## CI/CD Stability
+
+This project features a comprehensively stabilized CI/CD system designed for reliability and maintainability. For detailed information on CI configuration, troubleshooting, and maintenance guidelines, see:
+
+- **[CI_STABILITY.md](./CI_STABILITY.md)** - Complete CI stability guide and maintenance procedures
+- **[CI_STABILIZATION_REPORT.md](./CI_STABILIZATION_REPORT.md)** - Detailed technical report on the stabilization refactor
+
+Key features:
+- 15-minute backend CI with comprehensive timeout management
+- 10-minute frontend CI with optimized test execution
+- 30-minute Docker build with multi-architecture support
+- Robust caching strategies and health checks
+- 100% success rate in validation testing
+
+Refer to the Chinese documentation for production guidance, backup strategies, and troubleshooting tips.

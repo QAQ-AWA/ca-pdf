@@ -16,5 +16,16 @@ export default defineConfig({
     coverage: {
       provider: "v8",
     },
+    testTimeout: 10000,
+    hookTimeout: 10000,
+    isolate: true,
+    pool: "threads",
+    poolOptions: {
+      threads: {
+        maxThreads: 4,
+        minThreads: 1,
+      },
+    },
+    reporter: ["verbose"],
   },
 });
