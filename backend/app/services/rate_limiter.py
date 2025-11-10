@@ -18,7 +18,8 @@ class RateLimiter:
         self._attempts: dict[str, deque[float]] = {}
         self._lock = asyncio.Lock()
 
-    async def __call__(self, request: Request) -> None:
+    async def check_rate_limit(self, request: Request) -> None:
+        """Check rate limit for the given request."""
         identifier = self._build_identifier(request)
         now = monotonic()
 

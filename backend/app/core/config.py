@@ -105,6 +105,18 @@ class Settings(BaseSettings):
     @field_validator("backend_cors_origins", mode="before")
     @classmethod
     def _assemble_cors_origins(cls, value: Any) -> list[str]:
+        # Handle JSON string format from environment variables
+        if isinstance(value, str):
+            import json
+            try:
+                # Try to parse as JSON first
+                parsed_json = json.loads(value)
+                if isinstance(parsed_json, list):
+                    return [str(item).strip() for item in parsed_json if str(item).strip()]
+            except (json.JSONDecodeError, ValueError):
+                # If not valid JSON, fall back to comma-separated parsing
+                pass
+        
         parsed = cls._normalize_sequence(value)
         return parsed or ["*"]
 

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -36,11 +36,16 @@ _auth_rate_limiter = RateLimiter(
 )
 
 
+async def auth_rate_limit(request: Request) -> None:
+    """Rate limiting dependency for auth endpoints."""
+    await _auth_rate_limiter.check_rate_limit(request)
+
+
 @router.post("/login", response_model=TokenResponse, tags=["auth"])
 async def login(
     payload: LoginRequest,
     session: AsyncSession = Depends(get_db),
-    _: None = Depends(_auth_rate_limiter),
+    _: None = Depends(auth_rate_limit),
 ) -> TokenResponse:
     """Authenticate a user and return a pair of access and refresh tokens."""
 
@@ -63,7 +68,7 @@ async def logout(
     payload: LogoutRequest,
     current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_db),
-    _: None = Depends(_auth_rate_limiter),
+    _: None = Depends(auth_rate_limit),
     credentials: HTTPAuthorizationCredentials | None = Depends(_http_bearer),
 ) -> dict[str, str]:
     """Revoke the supplied refresh token and invalidate the active access token."""
@@ -99,7 +104,7 @@ async def logout(
 async def refresh_tokens(
     payload: RefreshRequest,
     session: AsyncSession = Depends(get_db),
-    _: None = Depends(_auth_rate_limiter),
+    _: None = Depends(auth_rate_limit),
 ) -> TokenResponse:
     """Rotate refresh tokens and issue a new token pair."""
 
