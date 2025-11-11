@@ -13,7 +13,6 @@ from fastapi import (
     Depends,
     File,
     Form,
-    HTTPException,
     Request,
     UploadFile,
     status,
@@ -23,6 +22,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.dependencies.auth import get_current_user
 from app.core.config import settings
+from app.core.errors import (
+    InvalidFileError,
+    NotFoundError,
+    OperationFailedError,
+)
 from app.crud import audit_log as audit_log_crud
 from app.db.session import get_db
 from app.models.user import User
@@ -154,25 +158,22 @@ async def sign_pdf(
     """Sign a single PDF document with a user's certificate."""
 
     if pdf_file.content_type not in settings.pdf_allowed_content_types:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Invalid content type: {pdf_file.content_type}",
+        raise InvalidFileError(
+            f"Invalid content type: {pdf_file.content_type}"
         )
 
     try:
         pdf_data = await pdf_file.read()
     except Exception as exc:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Failed to read PDF file: {exc}",
+        raise InvalidFileError(
+            "Failed to read PDF file", str(exc)
         ) from exc
 
     try:
         cert_uuid = UUID(certificate_id)
     except ValueError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid certificate_id format",
+        raise InvalidFileError(
+            "Invalid certificate_id format"
         ) from exc
 
     seal_uuid: UUID | None = None
@@ -180,25 +181,22 @@ async def sign_pdf(
         try:
             seal_uuid = UUID(seal_id)
         except ValueError as exc:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Invalid seal_id format",
+            raise InvalidFileError(
+                "Invalid seal_id format"
             ) from exc
 
     try:
         sig_visibility = SignatureVisibility(visibility)
     except ValueError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Invalid visibility value: {visibility}",
+        raise InvalidFileError(
+            f"Invalid visibility value: {visibility}"
         ) from exc
 
     coordinates: SignatureCoordinates | None = None
     if sig_visibility == SignatureVisibility.VISIBLE:
         if page is None or x is None or y is None or width is None or height is None:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Visible signatures require page, x, y, width, and height",
+            raise InvalidFileError(
+                "Visible signatures require page, x, y, width, and height"
             )
         coordinates = SignatureCoordinates(
             page=page, x=x, y=y, width=width, height=height
@@ -234,25 +232,13 @@ async def sign_pdf(
             embed_ltv=embed_ltv,
         )
     except PDFValidationError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(exc),
-        ) from exc
+        raise InvalidFileError(str(exc)) from exc
     except CertificateNotFoundError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=str(exc),
-        ) from exc
+        raise NotFoundError("Certificate") from exc
     except (CertificateInvalidError, SealNotFoundError) as exc:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(exc),
-        ) from exc
+        raise OperationFailedError("PDF signing operation failed", str(exc)) from exc
     except SignatureError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(exc),
-        ) from exc
+        raise OperationFailedError("Signature creation failed", str(exc)) from exc
 
     await _record_audit_event(
         session=session,
@@ -322,17 +308,15 @@ async def batch_sign_pdfs(
     """Sign multiple PDF documents in batch with the same certificate and settings."""
 
     if len(pdf_files) > settings.pdf_batch_max_count:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Batch size exceeds maximum of {settings.pdf_batch_max_count}",
+        raise InvalidFileError(
+            f"Batch size exceeds maximum of {settings.pdf_batch_max_count}"
         )
 
     try:
         cert_uuid = UUID(certificate_id)
     except ValueError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid certificate_id format",
+        raise InvalidFileError(
+            "Invalid certificate_id format"
         ) from exc
 
     seal_uuid: UUID | None = None
@@ -340,25 +324,22 @@ async def batch_sign_pdfs(
         try:
             seal_uuid = UUID(seal_id)
         except ValueError as exc:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Invalid seal_id format",
+            raise InvalidFileError(
+                "Invalid seal_id format"
             ) from exc
 
     try:
         sig_visibility = SignatureVisibility(visibility)
     except ValueError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Invalid visibility value: {visibility}",
+        raise InvalidFileError(
+            f"Invalid visibility value: {visibility}"
         ) from exc
 
     coordinates: SignatureCoordinates | None = None
     if sig_visibility == SignatureVisibility.VISIBLE:
         if page is None or x is None or y is None or width is None or height is None:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Visible signatures require coordinates",
+            raise InvalidFileError(
+                "Visible signatures require coordinates"
             )
         coordinates = SignatureCoordinates(
             page=page, x=x, y=y, width=width, height=height
@@ -373,17 +354,15 @@ async def batch_sign_pdfs(
     pdfs: list[tuple[str, bytes]] = []
     for pdf_file in pdf_files:
         if pdf_file.content_type not in settings.pdf_allowed_content_types:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Invalid content type for {pdf_file.filename}: {pdf_file.content_type}",
+            raise InvalidFileError(
+                f"Invalid content type for {pdf_file.filename}: {pdf_file.content_type}"
             )
         try:
             pdf_data = await pdf_file.read()
             pdfs.append((pdf_file.filename or "unknown.pdf", pdf_data))
         except Exception as exc:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Failed to read {pdf_file.filename}: {exc}",
+            raise InvalidFileError(
+                f"Failed to read {pdf_file.filename}", str(exc)
             ) from exc
 
     service = PDFSigningService()
@@ -402,20 +381,11 @@ async def batch_sign_pdfs(
             embed_ltv=embed_ltv,
         )
     except PDFValidationError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(exc),
-        ) from exc
+        raise InvalidFileError(str(exc)) from exc
     except CertificateNotFoundError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=str(exc),
-        ) from exc
+        raise NotFoundError("Certificate") from exc
     except (CertificateInvalidError, SealNotFoundError) as exc:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(exc),
-        ) from exc
+        raise OperationFailedError("PDF signing operation failed", str(exc)) from exc
 
     result_items: list[PDFBatchSignResultItem] = []
     successful = 0
@@ -494,17 +464,15 @@ async def verify_pdf(
     """Validate signatures embedded in a PDF document."""
 
     if pdf_file.content_type not in settings.pdf_allowed_content_types:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Invalid content type: {pdf_file.content_type}",
+        raise InvalidFileError(
+            f"Invalid content type: {pdf_file.content_type}"
         )
 
     try:
         pdf_data = await pdf_file.read()
     except Exception as exc:  # pragma: no cover - defensive branch
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Failed to read PDF file: {exc}",
+        raise InvalidFileError(
+            "Failed to read PDF file", str(exc)
         ) from exc
 
     verification_service = PDFVerificationService()
@@ -514,18 +482,11 @@ async def verify_pdf(
             session=session, pdf_data=pdf_data
         )
     except PDFVerificationInputError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)
-        ) from exc
+        raise InvalidFileError(str(exc)) from exc
     except PDFVerificationRootCAError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT, detail=str(exc)
-        ) from exc
+        raise OperationFailedError("Verification operation failed", str(exc)) from exc
     except PDFVerificationError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(exc),
-        ) from exc
+        raise OperationFailedError("PDF verification failed", str(exc)) from exc
 
     response_payload = PDFVerificationResponse(
         total_signatures=report.total_signatures,

@@ -9,7 +9,6 @@ from fastapi import (
     Depends,
     File,
     Form,
-    HTTPException,
     Query,
     UploadFile,
     status,
@@ -19,6 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.dependencies.auth import get_current_user
 from app.core.config import settings
+from app.core.errors import ForbiddenError, InvalidFileError, NotFoundError, OperationFailedError
 from app.crud import audit_log as audit_log_crud
 from app.crud import seal as seal_crud
 from app.db.session import get_db
@@ -56,18 +56,16 @@ async def upload_seal(
     Returns the created seal information.
     """
     if file.filename is None or file.content_type is None:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="File and content type are required",
+        raise InvalidFileError(
+            "File and content type are required"
         )
 
     # Read the file content
     try:
         content = await file.read()
     except Exception as exc:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Failed to read uploaded file",
+        raise InvalidFileError(
+            "Failed to read uploaded file", str(exc)
         ) from exc
 
     # Validate the seal image
@@ -82,10 +80,7 @@ async def upload_seal(
             audit_actor_id=current_user.id,
         )
     except StorageValidationError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(exc),
-        ) from exc
+        raise InvalidFileError(str(exc)) from exc
 
     # Create the seal record
     try:
@@ -99,10 +94,8 @@ async def upload_seal(
             commit=True,
         )
     except Exception as exc:
-        # Log the error but don't expose internal details
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Failed to create seal. Name might already exist for this user.",
+        raise OperationFailedError(
+            "Failed to create seal. Name might already exist for this user.", str(exc)
         ) from exc
 
     # Create audit log for seal creation
@@ -189,23 +182,14 @@ async def download_seal_image(
     seal = await seal_crud.get_seal_by_id(session=session, seal_id=seal_id)
 
     if seal is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Seal not found",
-        )
+        raise NotFoundError("Seal")
 
     # Verify ownership
     if seal.owner_id != current_user.id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="You do not have permission to access this seal",
-        )
+        raise ForbiddenError("You do not have permission to access this seal")
 
     if seal.image_file is None or seal.image_secret is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Seal image not available",
-        )
+        raise NotFoundError("Seal image")
 
     # Retrieve the encrypted image
     storage_service = EncryptedStorageService()
@@ -214,10 +198,7 @@ async def download_seal_image(
             session=session, secret_id=seal.image_secret.id
         )
     except StorageNotFoundError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Seal image not found",
-        ) from exc
+        raise NotFoundError("Seal image") from exc
 
     # Determine the media type from the file metadata
     media_type = seal.image_file.content_type
@@ -248,17 +229,11 @@ async def delete_seal(
     seal = await seal_crud.get_seal_by_id(session=session, seal_id=seal_id)
 
     if seal is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Seal not found",
-        )
+        raise NotFoundError("Seal")
 
     # Verify ownership
     if seal.owner_id != current_user.id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="You do not have permission to delete this seal",
-        )
+        raise ForbiddenError("You do not have permission to delete this seal")
 
     # Delete the seal
     await seal_crud.delete_seal(session=session, seal=seal, commit=True)
