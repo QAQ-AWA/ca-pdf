@@ -7,7 +7,9 @@ from uuid import UUID, uuid4
 
 from cryptography.fernet import Fernet, InvalidToken
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.core.config import StorageEncryptionAlgorithm, settings
 from app.crud import audit_log as audit_log_crud
@@ -164,7 +166,13 @@ class EncryptedStorageService:
             ) from exc
 
     async def load_file_bytes(self, session: AsyncSession, file_id: UUID) -> bytes:
-        file_metadata = await session.get(FileMetadata, file_id)
+        stmt = (
+            select(FileMetadata)
+            .where(FileMetadata.id == file_id)
+            .options(selectinload(FileMetadata.encrypted_payload))
+        )
+        result = await session.execute(stmt)
+        file_metadata = result.unique().scalar_one_or_none()
         if file_metadata is None:
             raise StorageNotFoundError(f"File metadata {file_id} was not found")
         secret = file_metadata.encrypted_payload
