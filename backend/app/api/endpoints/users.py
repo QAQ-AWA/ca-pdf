@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -17,6 +19,7 @@ from app.core.errors import (
 from app.crud import audit_log as audit_log_crud
 from app.crud import user as user_crud
 from app.db.session import get_db
+from app.models.role import RoleSlug
 from app.models.user import User
 from app.schemas.user import (
     ResetPasswordRequest,
@@ -102,7 +105,7 @@ async def create_user(
         email=user_data.email,
         password=user_data.password,
         username=user_data.username,
-        role=user_data.role,
+        role=RoleSlug(user_data.role),
         is_active=user_data.is_active,
     )
 
@@ -195,7 +198,7 @@ async def update_user(
     )
 
     # Record audit log
-    changes = {}
+    changes: dict[str, Any] = {}
     if user_update.email and user_update.email != user.email:
         changes["email"] = user_update.email
     if user_update.role and user_update.role != user.role:

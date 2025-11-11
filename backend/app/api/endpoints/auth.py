@@ -8,6 +8,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.dependencies.auth import get_current_user, require_roles
 from app.core.config import settings
+from app.core.errors import ForbiddenError
+from app.core.errors import InvalidTokenError as InvalidTokenAPIError
+from app.core.errors import UnauthorizedError
 from app.core.security import (
     InvalidTokenError,
     create_access_token,
