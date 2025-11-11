@@ -159,9 +159,7 @@ class InsufficientPermissionsError(APIException):
 class NotFoundError(APIException):
     """Raised when a resource is not found."""
 
-    def __init__(
-        self, resource: str, identifier: Optional[str] = None
-    ) -> None:
+    def __init__(self, resource: str, identifier: Optional[str] = None) -> None:
         message = f"{resource} not found"
         detail = (
             f"Could not find {resource} with identifier: {identifier}"
@@ -179,9 +177,7 @@ class NotFoundError(APIException):
 class AlreadyExistsError(APIException):
     """Raised when trying to create a resource that already exists."""
 
-    def __init__(
-        self, resource: str, identifier: Optional[str] = None
-    ) -> None:
+    def __init__(self, resource: str, identifier: Optional[str] = None) -> None:
         message = f"{resource} already exists"
         detail = (
             f"A {resource} with identifier '{identifier}' already exists"

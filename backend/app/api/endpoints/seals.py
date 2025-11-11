@@ -4,21 +4,18 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from fastapi import (
-    APIRouter,
-    Depends,
-    File,
-    Form,
-    Query,
-    UploadFile,
-    status,
-)
+from fastapi import APIRouter, Depends, File, Form, Query, UploadFile, status
 from fastapi.responses import Response, StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.dependencies.auth import get_current_user
 from app.core.config import settings
-from app.core.errors import ForbiddenError, InvalidFileError, NotFoundError, OperationFailedError
+from app.core.errors import (
+    ForbiddenError,
+    InvalidFileError,
+    NotFoundError,
+    OperationFailedError,
+)
 from app.crud import audit_log as audit_log_crud
 from app.crud import seal as seal_crud
 from app.db.session import get_db
@@ -56,17 +53,13 @@ async def upload_seal(
     Returns the created seal information.
     """
     if file.filename is None or file.content_type is None:
-        raise InvalidFileError(
-            "File and content type are required"
-        )
+        raise InvalidFileError("File and content type are required")
 
     # Read the file content
     try:
         content = await file.read()
     except Exception as exc:
-        raise InvalidFileError(
-            "Failed to read uploaded file", str(exc)
-        ) from exc
+        raise InvalidFileError("Failed to read uploaded file", str(exc)) from exc
 
     # Validate the seal image
     storage_service = EncryptedStorageService()

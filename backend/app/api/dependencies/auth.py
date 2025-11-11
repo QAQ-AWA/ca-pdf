@@ -70,3 +70,10 @@ def require_roles(*roles: UserRole | str) -> Callable[..., Awaitable[User]]:
         return current_user
 
     return authorizer
+
+
+async def require_admin(current_user: User = Depends(get_current_user)) -> User:
+    """Require the current user to have admin role."""
+    if current_user.role != UserRole.ADMIN.value:
+        raise ForbiddenError("Admin access required")
+    return current_user

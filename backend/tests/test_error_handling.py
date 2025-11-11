@@ -24,7 +24,9 @@ class TestErrorResponseFormat:
         assert data["code"] == "INVALID_INPUT"
         assert data["message"] == "Validation error"
 
-    async def test_error_response_includes_request_id(self, client: AsyncClient) -> None:
+    async def test_error_response_includes_request_id(
+        self, client: AsyncClient
+    ) -> None:
         """Test that error responses include a request ID for tracing."""
         response = await client.post(
             "/api/v1/auth/login",
@@ -35,9 +37,7 @@ class TestErrorResponseFormat:
         assert "request_id" in data
         assert data["request_id"]  # Should not be empty
 
-    async def test_error_response_includes_timestamp(
-        self, client: AsyncClient
-    ) -> None:
+    async def test_error_response_includes_timestamp(self, client: AsyncClient) -> None:
         """Test that error responses include timestamp."""
         response = await client.post(
             "/api/v1/auth/login",
@@ -139,9 +139,7 @@ class TestErrorCodeConsistency:
                 assert isinstance(json_data["code"], str)
                 assert json_data["code"]  # Not empty
 
-    async def test_error_code_is_stable_string(
-        self, client: AsyncClient
-    ) -> None:
+    async def test_error_code_is_stable_string(self, client: AsyncClient) -> None:
         """Test that error codes are stable strings for frontend i18n."""
         response = await client.get("/api/v1/auth/me")
         assert response.status_code == 401
@@ -154,9 +152,7 @@ class TestErrorCodeConsistency:
 class TestErrorMessages:
     """Test that error messages are user-friendly and secure."""
 
-    async def test_error_messages_are_readable(
-        self, client: AsyncClient
-    ) -> None:
+    async def test_error_messages_are_readable(self, client: AsyncClient) -> None:
         """Test that error messages are human-readable."""
         response = await client.get("/api/v1/auth/me")
         assert response.status_code == 401
