@@ -15,6 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.dependencies.auth import get_current_user
 from app.core.config import settings
 from app.core.errors import InvalidFileError, NotFoundError, OperationFailedError
+from app.core.file_validators import PDFValidator
 from app.crud import audit_log as audit_log_crud
 from app.db.session import get_db
 from app.models.user import User
@@ -153,6 +154,11 @@ async def sign_pdf(
     except Exception as exc:
         raise InvalidFileError("Failed to read PDF file", str(exc)) from exc
 
+    original_filename = pdf_file.filename or "document.pdf"
+    is_valid_pdf, pdf_error = PDFValidator.validate(pdf_data, original_filename)
+    if not is_valid_pdf:
+        raise InvalidFileError(f"Invalid PDF file: {pdf_error or 'Validation failed'}")
+
     try:
         cert_uuid = UUID(certificate_id)
     except ValueError as exc:
@@ -186,7 +192,6 @@ async def sign_pdf(
             reason=reason, location=location, contact_info=contact_info
         )
 
-    original_filename = pdf_file.filename or "document.pdf"
     base_name = Path(original_filename).stem or "document"
     sanitized_base = (
         base_name.replace("\\", "_").replace("/", "_").replace('"', "").strip()
@@ -327,13 +332,23 @@ async def batch_sign_pdfs(
             raise InvalidFileError(
                 f"Invalid content type for {pdf_file.filename}: {pdf_file.content_type}"
             )
+
+        filename = pdf_file.filename or "unknown.pdf"
+
         try:
             pdf_data = await pdf_file.read()
-            pdfs.append((pdf_file.filename or "unknown.pdf", pdf_data))
         except Exception as exc:
             raise InvalidFileError(
                 f"Failed to read {pdf_file.filename}", str(exc)
             ) from exc
+
+        is_valid_pdf, pdf_error = PDFValidator.validate(pdf_data, filename)
+        if not is_valid_pdf:
+            raise InvalidFileError(
+                f"Invalid PDF file {filename}: {pdf_error or 'Validation failed'}"
+            )
+
+        pdfs.append((filename, pdf_data))
 
     service = PDFSigningService()
 

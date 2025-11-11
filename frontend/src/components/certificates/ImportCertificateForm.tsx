@@ -1,5 +1,7 @@
 import { FormEvent, useMemo, useState } from "react";
+import axios from "axios";
 
+import { fileValidators } from "../../lib/fileValidators";
 import { importCertificate } from "../../lib/caApi";
 import type { CertificateImportResult } from "../../types/ca";
 import { Button } from "../ui/Button";
@@ -24,12 +26,7 @@ type SelectedFile = {
   sizeLabel: string;
 };
 
-const MAX_P12_BYTES = 5 * 1024 * 1024; // 5 MiB
-const ALLOWED_MIME_TYPES = new Set([
-  "application/x-pkcs12",
-  "application/pkcs12",
-  "application/octet-stream",
-]);
+const MAX_P12_BYTES = 10 * 1024 * 1024; // 10 MiB
 
 const formatSize = (bytes: number): string => {
   if (bytes >= 1024 * 1024) {
@@ -85,9 +82,10 @@ export const ImportCertificateForm = ({ onImported }: ImportCertificateFormProps
       return;
     }
 
-    if (!ALLOWED_MIME_TYPES.has(file.type)) {
+    const validationError = fileValidators.validateCertificate(file);
+    if (validationError) {
       setSelectedFile(null);
-      setErrors({ file: "Unsupported file type. Please select a PKCS#12 bundle (.p12/.pfx)." });
+      setErrors({ file: validationError });
       return;
     }
 
@@ -136,7 +134,19 @@ export const ImportCertificateForm = ({ onImported }: ImportCertificateFormProps
       setErrors({});
       onImported?.(imported);
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Failed to import the certificate.";
+      let message = "Failed to import the certificate.";
+
+      if (axios.isAxiosError(error)) {
+        const data = error.response?.data as { code?: string; message?: string } | undefined;
+        if (data?.code === "INVALID_FILE" && data.message) {
+          message = data.message;
+        } else if (data?.message) {
+          message = data.message;
+        }
+      } else if (error instanceof Error) {
+        message = error.message;
+      }
+
       setSubmitError(message);
     } finally {
       setIsSubmitting(false);

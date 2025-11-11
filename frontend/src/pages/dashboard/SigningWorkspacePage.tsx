@@ -1,4 +1,5 @@
 import { ChangeEvent, useEffect, useMemo, useRef, useState } from "react";
+import axios from "axios";
 
 import { PdfPreview } from "../../components/signing/PdfPreview";
 import { Button } from "../../components/ui/Button";
@@ -6,6 +7,7 @@ import { Card } from "../../components/ui/Card";
 import { Input } from "../../components/ui/Input";
 import { Spinner } from "../../components/ui/Spinner";
 import { useTheme } from "../../components/ThemeProvider";
+import { fileValidators } from "../../lib/fileValidators";
 import { triggerFileDownload } from "../../lib/download";
 import { listSeals } from "../../lib/sealApi";
 import { signPdf } from "../../lib/signingApi";
@@ -192,18 +194,28 @@ export const SigningWorkspacePage = () => {
       return;
     }
 
-    const nextDocuments = Array.from(files)
-      .filter((file) => file.type === "application/pdf")
-      .map(createDocument);
+    const nextDocuments: SigningDocument[] = [];
+    let firstError: string | null = null;
+
+    Array.from(files).forEach((file) => {
+      const validationError = fileValidators.validatePDF(file);
+      if (validationError) {
+        if (!firstError) {
+          firstError = validationError;
+        }
+        return;
+      }
+      nextDocuments.push(createDocument(file));
+    });
 
     if (!nextDocuments.length) {
-      setGlobalError("Select PDF files to add them to the workspace queue.");
+      setGlobalError(firstError ?? "Select PDF files to add them to the workspace queue.");
       event.target.value = "";
       return;
     }
 
     setDocuments((previous) => [...previous, ...nextDocuments]);
-    setGlobalError(null);
+    setGlobalError(firstError);
     setActiveDocumentId((previousActive) => previousActive ?? nextDocuments[0]?.id ?? null);
     setActiveOverlayId(null);
     event.target.value = "";
@@ -485,7 +497,19 @@ export const SigningWorkspacePage = () => {
             )
           );
         } catch (error) {
-          const message = error instanceof Error ? error.message : "Failed to sign document.";
+          let message = "Failed to sign document.";
+
+          if (axios.isAxiosError(error)) {
+            const data = error.response?.data as { code?: string; message?: string } | undefined;
+            if (data?.code === "INVALID_FILE" && data.message) {
+              message = data.message;
+            } else if (data?.message) {
+              message = data.message;
+            }
+          } else if (error instanceof Error) {
+            message = error.message;
+          }
+
           setDocuments((prev) =>
             prev.map((item) =>
               item.id === document.id ? { ...item, status: "error", error: message, signedBlob: null } : item
