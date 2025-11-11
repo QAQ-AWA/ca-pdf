@@ -19,6 +19,7 @@ from app.core.errors import (
     NotFoundError,
     OperationFailedError,
 )
+from app.core.file_validators import CertificateValidator
 from app.crud import certificate as certificate_crud
 from app.db.session import get_db
 from app.models.certificate import Certificate, CertificateStatus
@@ -158,6 +159,16 @@ async def import_certificate(
         bundle_bytes = base64.b64decode(payload.p12_bundle, validate=True)
     except binascii.Error as exc:
         raise InvalidFileError("Invalid PKCS#12 bundle encoding") from exc
+
+    is_valid_bundle, bundle_error = CertificateValidator.validate(
+        bundle_bytes,
+        "imported-certificate.p12",
+        payload.passphrase,
+    )
+    if not is_valid_bundle:
+        raise InvalidFileError(
+            f"Invalid certificate: {bundle_error or 'Validation failed'}"
+        )
 
     try:
         result = await ca_service.import_certificate_from_p12(

@@ -16,6 +16,7 @@ from app.core.errors import (
     NotFoundError,
     OperationFailedError,
 )
+from app.core.file_validators import SealImageValidator
 from app.crud import audit_log as audit_log_crud
 from app.crud import seal as seal_crud
 from app.db.session import get_db
@@ -61,7 +62,14 @@ async def upload_seal(
     except Exception as exc:
         raise InvalidFileError("Failed to read uploaded file", str(exc)) from exc
 
-    # Validate the seal image
+    filename = file.filename or "seal-image"
+    is_valid_image, error_msg = SealImageValidator.validate(content, filename)
+    if not is_valid_image:
+        raise InvalidFileError(
+            f"Invalid seal image: {error_msg or 'Validation failed'}"
+        )
+
+    # Store the seal image in encrypted storage
     storage_service = EncryptedStorageService()
     try:
         file_metadata, secret = await storage_service.store_seal_image(

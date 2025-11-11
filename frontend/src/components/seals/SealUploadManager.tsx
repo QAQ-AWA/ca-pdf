@@ -1,5 +1,7 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
+import axios from "axios";
 
+import { fileValidators } from "../../lib/fileValidators";
 import { uploadSeal } from "../../lib/sealApi";
 import type { SealSummary } from "../../types/seal";
 import { Button } from "../ui/Button";
@@ -19,8 +21,7 @@ type ValidationErrors = {
   form?: string;
 };
 
-const DEFAULT_MAX_BYTES = 1024 * 1024; // 1 MiB
-const ALLOWED_TYPES = new Set(["image/png", "image/svg+xml"]);
+const DEFAULT_MAX_BYTES = 5 * 1024 * 1024; // 5 MiB
 
 const formatSize = (bytes: number): string => {
   if (bytes >= 1024 * 1024) {
@@ -80,9 +81,10 @@ export const SealUploadManager = ({ onUploaded, maxBytes = DEFAULT_MAX_BYTES }: 
       return;
     }
 
-    if (!ALLOWED_TYPES.has(selected.type)) {
+    const validationError = fileValidators.validateSealImage(selected);
+    if (validationError) {
       setFile(null);
-      setErrors({ file: "Unsupported image type. Only PNG and SVG files are allowed." });
+      setErrors({ file: validationError });
       return;
     }
 
@@ -144,7 +146,19 @@ export const SealUploadManager = ({ onUploaded, maxBytes = DEFAULT_MAX_BYTES }: 
       resetForm();
       onUploaded?.(seal);
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Failed to upload seal image.";
+      let message = "Failed to upload seal image.";
+
+      if (axios.isAxiosError(error)) {
+        const data = error.response?.data as { code?: string; message?: string } | undefined;
+        if (data?.code === "INVALID_FILE" && data.message) {
+          message = data.message;
+        } else if (data?.message) {
+          message = data.message;
+        }
+      } else if (error instanceof Error) {
+        message = error.message;
+      }
+
       setErrors({ form: message });
     } finally {
       setIsSubmitting(false);
