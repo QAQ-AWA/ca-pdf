@@ -48,9 +48,7 @@ async def login(
         session=session, email=payload.email, password=payload.password
     )
     if user is None:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials"
-        )
+        raise UnauthorizedError("Invalid credentials")
 
     access_token = create_access_token(subject=str(user.id), role=user.role)
     refresh_token = create_refresh_token(subject=str(user.id), role=user.role)
@@ -106,22 +104,16 @@ async def refresh_tokens(
     token_payload = _decode_refresh_token_or_raise(payload.refresh_token)
 
     if await token_crud.is_token_revoked(session=session, jti=token_payload.jti):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="Token has been revoked"
-        )
+        raise UnauthorizedError("Token has been revoked")
 
     try:
         user_id = int(token_payload.sub)
     except (TypeError, ValueError) as exc:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid subject claim"
-        ) from exc
+        raise UnauthorizedError("Invalid subject claim") from exc
 
     user = await user_crud.get_user_by_id(session=session, user_id=user_id)
     if user is None or not user.is_active:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="User is not authorized"
-        )
+        raise UnauthorizedError("User is not authorized")
 
     await token_crud.revoke_token(
         session=session,
@@ -156,21 +148,14 @@ def _decode_refresh_token_or_raise(refresh_token: str) -> TokenPayload:
     try:
         token_payload = decode_token(refresh_token)
     except InvalidTokenError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid refresh token"
-        ) from exc
+        raise InvalidTokenAPIError("Invalid refresh token") from exc
 
     if token_payload.type != "refresh":
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail="Wrong token type"
-        )
+        raise InvalidTokenAPIError("Wrong token type")
 
     return token_payload
 
 
 def _validate_token_ownership(token_payload: TokenPayload, user: User) -> None:
     if token_payload.sub != str(user.id):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Token does not belong to user",
-        )
+        raise ForbiddenError("Token does not belong to user")

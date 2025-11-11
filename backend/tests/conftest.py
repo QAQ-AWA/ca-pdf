@@ -81,3 +81,16 @@ async def client() -> AsyncGenerator[AsyncClient, None]:
         app=app_main.app, base_url="http://testserver"
     ) as async_client:
         yield async_client
+
+
+@pytest.fixture()
+async def user_token(client: AsyncClient) -> str:
+    """Provide a valid user authentication token."""
+    # Login with admin user
+    response = await client.post(
+        "/api/v1/auth/login",
+        json={"email": settings.admin_email, "password": settings.admin_password},
+    )
+    assert response.status_code == 200
+    data = response.json()
+    return data["access_token"]

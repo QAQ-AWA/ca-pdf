@@ -8,11 +8,12 @@ from datetime import datetime, timezone
 from uuid import UUID
 
 from cryptography.hazmat.primitives import hashes
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, status
 from fastapi.responses import PlainTextResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.dependencies.auth import get_current_user, require_roles
+from app.core.errors import AlreadyExistsError, InvalidFileError, NotFoundError, OperationFailedError
 from app.crud import certificate as certificate_crud
 from app.db.session import get_db
 from app.models.certificate import Certificate, CertificateStatus
@@ -66,13 +67,9 @@ async def generate_root_ca(
             validity_days=payload.validity_days,
         )
     except RootCAAlreadyExistsError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT, detail=str(exc)
-        ) from exc
+        raise AlreadyExistsError("Root CA") from exc
     except CertificateAuthorityError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)
-        ) from exc
+        raise OperationFailedError("Failed to generate root CA", str(exc)) from exc
 
     fingerprint = result.certificate.fingerprint(hashes.SHA256()).hex().upper()
     serial_hex = f"{result.certificate.serial_number:x}".upper()
@@ -99,9 +96,7 @@ async def export_root_certificate(
     try:
         certificate_pem = await ca_service.export_root_certificate(session=session)
     except RootCANotFoundError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)
-        ) from exc
+        raise NotFoundError("Root certificate") from exc
 
     return RootCertificateExportResponse(certificate_pem=certificate_pem)
 
@@ -126,17 +121,11 @@ async def issue_certificate(
             actor_id=current_user.id,
         )
     except RootCANotFoundError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT, detail=str(exc)
-        ) from exc
+        raise NotFoundError("Root CA") from exc
     except CertificateIssuanceError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)
-        ) from exc
+        raise OperationFailedError("Failed to issue certificate", str(exc)) from exc
     except CertificateAuthorityError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)
-        ) from exc
+        raise OperationFailedError("Certificate operation failed", str(exc)) from exc
 
     encoded_bundle = base64.b64encode(result.p12_bytes).decode("utf-8")
     status_enum = CertificateStatus(result.certificate.status)
@@ -163,9 +152,8 @@ async def import_certificate(
     try:
         bundle_bytes = base64.b64decode(payload.p12_bundle, validate=True)
     except binascii.Error as exc:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid PKCS#12 bundle encoding",
+        raise InvalidFileError(
+            "Invalid PKCS#12 bundle encoding"
         ) from exc
 
     try:
@@ -177,13 +165,9 @@ async def import_certificate(
             actor_id=current_user.id,
         )
     except CertificateImportError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)
-        ) from exc
+        raise InvalidFileError("Failed to import certificate", str(exc)) from exc
     except CertificateAuthorityError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)
-        ) from exc
+        raise OperationFailedError("Certificate operation failed", str(exc)) from exc
 
     status_enum = CertificateStatus(result.certificate.status)
 
@@ -244,9 +228,7 @@ async def revoke_certificate(
             actor_id=current_user.id,
         )
     except CertificateRevocationError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)
-        ) from exc
+        raise OperationFailedError("Failed to revoke certificate", str(exc)) from exc
 
     status_enum = CertificateStatus(revoked.status)
     revoked_at = revoked.updated_at
@@ -270,9 +252,7 @@ async def generate_crl(
             session=session, actor_id=current_user.id
         )
     except CertificateAuthorityError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)
-        ) from exc
+        raise OperationFailedError("Failed to generate CRL", str(exc)) from exc
 
     return CRLGenerateResponse(
         artifact_id=result.artifact.id,
@@ -310,9 +290,7 @@ async def download_crl(
             session=session, artifact_id=artifact_id
         )
     except CertificateAuthorityError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)
-        ) from exc
+        raise NotFoundError("CRL") from exc
 
     return PlainTextResponse(content=crl_pem, media_type="application/pkix-crl")
 
@@ -330,7 +308,5 @@ async def _load_certificate_or_404(
         session=session, certificate_id=certificate_id
     )
     if certificate is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Certificate not found"
-        )
+        raise NotFoundError("Certificate", str(certificate_id))
     return certificate
