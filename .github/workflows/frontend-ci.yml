@@ -7,11 +7,6 @@ on:
       - "frontend/**"
       - "Makefile"
       - ".github/workflows/frontend-ci.yml"
-  pull_request:
-    paths:
-      - "frontend/**"
-      - "Makefile"
-      - ".github/workflows/frontend-ci.yml"
   workflow_dispatch:
 
 jobs:

@@ -7,11 +7,6 @@ on:
       - "backend/**"
       - "Makefile"
       - ".github/workflows/backend-ci.yml"
-  pull_request:
-    paths:
-      - "backend/**"
-      - "Makefile"
-      - ".github/workflows/backend-ci.yml"
   workflow_dispatch:
 
 jobs:
