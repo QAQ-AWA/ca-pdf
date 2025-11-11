@@ -13,7 +13,12 @@ from fastapi.responses import PlainTextResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.dependencies.auth import get_current_user, require_roles
-from app.core.errors import AlreadyExistsError, InvalidFileError, NotFoundError, OperationFailedError
+from app.core.errors import (
+    AlreadyExistsError,
+    InvalidFileError,
+    NotFoundError,
+    OperationFailedError,
+)
 from app.crud import certificate as certificate_crud
 from app.db.session import get_db
 from app.models.certificate import Certificate, CertificateStatus
@@ -152,9 +157,7 @@ async def import_certificate(
     try:
         bundle_bytes = base64.b64decode(payload.p12_bundle, validate=True)
     except binascii.Error as exc:
-        raise InvalidFileError(
-            "Invalid PKCS#12 bundle encoding"
-        ) from exc
+        raise InvalidFileError("Invalid PKCS#12 bundle encoding") from exc
 
     try:
         result = await ca_service.import_certificate_from_p12(

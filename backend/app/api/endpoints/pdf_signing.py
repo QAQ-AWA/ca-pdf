@@ -8,25 +8,13 @@ from typing import Any
 from urllib.parse import quote
 from uuid import UUID
 
-from fastapi import (
-    APIRouter,
-    Depends,
-    File,
-    Form,
-    Request,
-    UploadFile,
-    status,
-)
+from fastapi import APIRouter, Depends, File, Form, Request, UploadFile, status
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.dependencies.auth import get_current_user
 from app.core.config import settings
-from app.core.errors import (
-    InvalidFileError,
-    NotFoundError,
-    OperationFailedError,
-)
+from app.core.errors import InvalidFileError, NotFoundError, OperationFailedError
 from app.crud import audit_log as audit_log_crud
 from app.db.session import get_db
 from app.models.user import User
@@ -158,39 +146,29 @@ async def sign_pdf(
     """Sign a single PDF document with a user's certificate."""
 
     if pdf_file.content_type not in settings.pdf_allowed_content_types:
-        raise InvalidFileError(
-            f"Invalid content type: {pdf_file.content_type}"
-        )
+        raise InvalidFileError(f"Invalid content type: {pdf_file.content_type}")
 
     try:
         pdf_data = await pdf_file.read()
     except Exception as exc:
-        raise InvalidFileError(
-            "Failed to read PDF file", str(exc)
-        ) from exc
+        raise InvalidFileError("Failed to read PDF file", str(exc)) from exc
 
     try:
         cert_uuid = UUID(certificate_id)
     except ValueError as exc:
-        raise InvalidFileError(
-            "Invalid certificate_id format"
-        ) from exc
+        raise InvalidFileError("Invalid certificate_id format") from exc
 
     seal_uuid: UUID | None = None
     if seal_id:
         try:
             seal_uuid = UUID(seal_id)
         except ValueError as exc:
-            raise InvalidFileError(
-                "Invalid seal_id format"
-            ) from exc
+            raise InvalidFileError("Invalid seal_id format") from exc
 
     try:
         sig_visibility = SignatureVisibility(visibility)
     except ValueError as exc:
-        raise InvalidFileError(
-            f"Invalid visibility value: {visibility}"
-        ) from exc
+        raise InvalidFileError(f"Invalid visibility value: {visibility}") from exc
 
     coordinates: SignatureCoordinates | None = None
     if sig_visibility == SignatureVisibility.VISIBLE:
@@ -315,32 +293,24 @@ async def batch_sign_pdfs(
     try:
         cert_uuid = UUID(certificate_id)
     except ValueError as exc:
-        raise InvalidFileError(
-            "Invalid certificate_id format"
-        ) from exc
+        raise InvalidFileError("Invalid certificate_id format") from exc
 
     seal_uuid: UUID | None = None
     if seal_id:
         try:
             seal_uuid = UUID(seal_id)
         except ValueError as exc:
-            raise InvalidFileError(
-                "Invalid seal_id format"
-            ) from exc
+            raise InvalidFileError("Invalid seal_id format") from exc
 
     try:
         sig_visibility = SignatureVisibility(visibility)
     except ValueError as exc:
-        raise InvalidFileError(
-            f"Invalid visibility value: {visibility}"
-        ) from exc
+        raise InvalidFileError(f"Invalid visibility value: {visibility}") from exc
 
     coordinates: SignatureCoordinates | None = None
     if sig_visibility == SignatureVisibility.VISIBLE:
         if page is None or x is None or y is None or width is None or height is None:
-            raise InvalidFileError(
-                "Visible signatures require coordinates"
-            )
+            raise InvalidFileError("Visible signatures require coordinates")
         coordinates = SignatureCoordinates(
             page=page, x=x, y=y, width=width, height=height
         )
@@ -464,16 +434,12 @@ async def verify_pdf(
     """Validate signatures embedded in a PDF document."""
 
     if pdf_file.content_type not in settings.pdf_allowed_content_types:
-        raise InvalidFileError(
-            f"Invalid content type: {pdf_file.content_type}"
-        )
+        raise InvalidFileError(f"Invalid content type: {pdf_file.content_type}")
 
     try:
         pdf_data = await pdf_file.read()
     except Exception as exc:  # pragma: no cover - defensive branch
-        raise InvalidFileError(
-            "Failed to read PDF file", str(exc)
-        ) from exc
+        raise InvalidFileError("Failed to read PDF file", str(exc)) from exc
 
     verification_service = PDFVerificationService()
 

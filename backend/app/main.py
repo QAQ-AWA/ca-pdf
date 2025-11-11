@@ -35,7 +35,9 @@ def create_application() -> FastAPI:
     application.include_router(router)
 
     @application.exception_handler(APIException)
-    async def api_exception_handler(request: Request, exc: APIException) -> JSONResponse:
+    async def api_exception_handler(
+        request: Request, exc: APIException
+    ) -> JSONResponse:
         """Handle standardized API exceptions."""
         error_response = ErrorResponse(
             code=exc.code,
