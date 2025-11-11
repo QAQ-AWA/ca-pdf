@@ -8,6 +8,7 @@ import { SettingsPage } from "../pages/dashboard/SettingsPage";
 import { AdminPage } from "../pages/dashboard/AdminPage";
 import { VerificationPage } from "../pages/dashboard/VerificationPage";
 import { AuditLogPage } from "../pages/dashboard/AuditLogPage";
+import { UsersManagementPage } from "../pages/dashboard/UsersManagementPage";
 import { LoginPage } from "../pages/LoginPage";
 import { LogoutPage } from "../pages/LogoutPage";
 import { UnauthorizedPage } from "../pages/UnauthorizedPage";
@@ -43,6 +44,14 @@ export const AppRoutes = () => (
         element={
           <ProtectedRoute requiredRoles={["admin"]}>
             <AdminPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="users"
+        element={
+          <ProtectedRoute requiredRoles={["admin"]}>
+            <UsersManagementPage />
           </ProtectedRoute>
         }
       />

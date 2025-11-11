@@ -216,7 +216,7 @@ async def delete_user(
 
     user = await get_user_by_id(session=session, user_id=user_id)
     if user:
-        session.delete(user)
+        await session.delete(user)
         await session.commit()
 
 
