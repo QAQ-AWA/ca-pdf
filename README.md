@@ -1,6 +1,6 @@
 # ca-pdf 中文 README
 
-> **简体中文** | [English](./README.en.md)
+> **简体中文**
 
 ca-pdf 是一个自托管的 PDF 电子签章平台，内置完整的证书颁发机构（CA）系统、时间戳服务支持和企业级审计能力。为组织提供可信的数字签章基础设施，支持本地部署和云端运行。
 
@@ -48,7 +48,7 @@ ca-pdf 让您能够快速搭建一套独立的 PDF 数字签章系统，完全�
 #### 1. 克隆仓库并进入项目目录
 
 ```bash
-git clone https://github.com/yourusername/ca-pdf.git
+git clone https://github.com/QAQ-AWA/ca-pdf.git
 cd ca-pdf
 ```
 
