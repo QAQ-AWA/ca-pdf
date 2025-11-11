@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 
-from app.api.endpoints import audit, auth, ca, pdf_signing
+from app.api.endpoints import audit, auth, ca, pdf_signing, seals
 from app.core.config import settings
 
 router = APIRouter()
@@ -10,6 +10,7 @@ api_router.include_router(auth.router, prefix="/auth")
 api_router.include_router(audit.router)
 api_router.include_router(ca.router)
 api_router.include_router(pdf_signing.router)
+api_router.include_router(seals.router)
 router.include_router(api_router)
 
 
