@@ -1,4 +1,14 @@
 # ca-pdf 开发指南
+> 📖 **文档导航**：[README](./README.md) · [文档索引](./DOCUMENTATION.md) · [系统架构](./ARCHITECTURE.md) · [贡献指南](./CONTRIBUTING.md) · [API 文档](./API.md)
+> 🎯 **适用人群**：贡献者 / 项目开发者
+> ⏱️ **预计阅读时间**：50 分钟
+
+**项目地址**：[https://github.com/QAQ-AWA/ca-pdf](https://github.com/QAQ-AWA/ca-pdf)
+**联系邮箱**：[7780102@qq.com](mailto:7780102@qq.com)
+
+本指南聚焦开发流程、代码规范与调试技巧。请先阅读 [README.md](./README.md) 获取快速背景，再结合 [ARCHITECTURE.md](./ARCHITECTURE.md) 理解系统结构，并按照 [CONTRIBUTING.md](./CONTRIBUTING.md) 完成贡献流程。API 调试可参考 [API.md](./API.md)。
+
+---
 
 本文档为 ca-pdf 项目的贡献者和开发人员提供完整的开发指南，包括环境设置、项目结构、代码规范、开发流程和调试技巧。
 
@@ -143,25 +153,10 @@ ALTER ROLE app_user SET default_transaction_read_committed TO on;
 
 #### 5. 环境变量配置
 
-```bash
-# 复制环境变量文件
-cp .env.example .env
-
-# 生成安全密钥
-openssl rand -base64 32  # SECRET_KEY
-openssl rand -base64 32  # ENCRYPTED_STORAGE_MASTER_KEY
-
-# 编辑 .env 文件，填入以下内容
-cat > .env << EOF
-APP_NAME=ca-pdf
-SECRET_KEY=<生成的32字节密钥>
-ENCRYPTED_STORAGE_MASTER_KEY=<生成的32字节Fernet密钥>
-DATABASE_URL=postgresql+asyncpg://app_user:secure_password@localhost:5432/app_db
-ADMIN_EMAIL=admin@example.com
-ADMIN_PASSWORD=AdminPass123!
-BACKEND_CORS_ORIGINS='["http://localhost:3000"]'
-EOF
-```
+- 复制示例文件：`cp .env.example .env` 与 `cp .env.docker.example .env.docker`。
+- 使用 `openssl rand -base64 32` 生成 `SECRET_KEY` 与 `ENCRYPTED_STORAGE_MASTER_KEY`。
+- 其余变量（数据库连接、管理员账户、`BACKEND_CORS_ORIGINS` JSON 列表等）请参考 [DEPLOYMENT.md](./DEPLOYMENT.md) 的“环境变量清单”，保持与部署环境一致。
+- 开发环境可直接使用 `.env.example` 中的 SQLite 默认配置；如需使用 PostgreSQL，请与部署文档同步所需变量。
 
 ---
 
@@ -1496,6 +1491,17 @@ make restart
 
 ---
 
-**更新日期**：2024 年 1 月
+**更新日期**：2025 年 1 月
 
 **问题反馈**：请在 [GitHub Issues](https://github.com/QAQ-AWA/ca-pdf/issues) 中报告问题或建议。
+---
+
+🔗 **相关文档**
+- [系统架构](./ARCHITECTURE.md)
+- [贡献指南](./CONTRIBUTING.md)
+- [API 文档](./API.md)
+- [故障排查](./TROUBLESHOOTING.md)
+
+❓ **需要帮助？**
+- 请查看 [TROUBLESHOOTING.md](./TROUBLESHOOTING.md)
+

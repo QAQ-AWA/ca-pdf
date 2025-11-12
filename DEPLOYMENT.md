@@ -1,4 +1,14 @@
 # ca-pdf 部署指南
+> 📖 **文档导航**：[README](./README.md) · [文档索引](./DOCUMENTATION.md) · [安全指南](./SECURITY.md) · [故障排查](./TROUBLESHOOTING.md)
+> 🎯 **适用人群**：运维工程师 / 管理员
+> ⏱️ **预计阅读时间**：40 分钟
+
+**项目地址**：[https://github.com/QAQ-AWA/ca-pdf](https://github.com/QAQ-AWA/ca-pdf)
+**联系邮箱**：[7780102@qq.com](mailto:7780102@qq.com)
+
+本文为部署与运维提供完整指南。基础项目概览请参阅 [README.md](./README.md)，安全加固策略详见 [SECURITY.md](./SECURITY.md)。部署过程中出现异常时请首先查看 [TROUBLESHOOTING.md](./TROUBLESHOOTING.md)。
+
+---
 
 本文档为 ca-pdf 项目的完整部署指南，包含本地开发环境、Docker Compose 部署、生产环境配置等内容。
 
@@ -66,7 +76,7 @@ sudo ufw allow from 10.0.0.0/24 to any port 5432 proto tcp
 #### 1. 克隆仓库
 
 ```bash
-git clone https://github.com/yourusername/ca-pdf.git
+git clone https://github.com/QAQ-AWA/ca-pdf.git
 cd ca-pdf
 ```
 
@@ -777,12 +787,23 @@ npm run build -- --analyze
 
 ## 📞 支持和反馈
 
-- **GitHub Issues**：https://github.com/yourusername/ca-pdf/issues
-- **GitHub Discussions**：https://github.com/yourusername/ca-pdf/discussions
-- **邮件**：dev@ca-pdf.io
+- **GitHub Issues**：https://github.com/QAQ-AWA/ca-pdf/issues
+- **GitHub Discussions**：https://github.com/QAQ-AWA/ca-pdf/discussions
+- **邮件**：7780102@qq.com
 
 ---
 
 **版本**：1.0  
 **更新时间**：2024 年  
 **维护者**：ca-pdf 开发团队
+---
+
+🔗 **相关文档**
+- [安全指南](./SECURITY.md)
+- [故障排查](./TROUBLESHOOTING.md)
+- [文档索引](./DOCUMENTATION.md)
+- [架构概览](./ARCHITECTURE.md)
+
+❓ **需要帮助？**
+- 请查看 [TROUBLESHOOTING.md](./TROUBLESHOOTING.md)
+

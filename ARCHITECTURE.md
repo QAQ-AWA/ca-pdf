@@ -1,4 +1,14 @@
 # ca-pdf 架构设计文档
+> 📖 **文档导航**：[README](./README.md) · [文档索引](./DOCUMENTATION.md) · [开发指南](./DEVELOPMENT.md) · [API 文档](./API.md) · [安全指南](./SECURITY.md)
+> 🎯 **适用人群**：架构师 / 高级开发者
+> ⏱️ **预计阅读时间**：35 分钟
+
+**项目地址**：[https://github.com/QAQ-AWA/ca-pdf](https://github.com/QAQ-AWA/ca-pdf)
+**联系邮箱**：[7780102@qq.com](mailto:7780102@qq.com)
+
+本文聚焦系统设计与技术栈。如果需要先了解产品能力，请阅读 [README.md](./README.md)，开发实现细节见 [DEVELOPMENT.md](./DEVELOPMENT.md)，接口交互请参考 [API.md](./API.md)，安全策略可查看 [SECURITY.md](./SECURITY.md)。
+
+---
 
 ## 1. 系统架构概览
 
@@ -362,3 +372,14 @@ DashboardShell 使用 CSS Grid 构建双列布局，窄屏下可以通过媒体�
 
 ---
 本架构设计文档概述了 ca-pdf 平台的系统组件、服务分层、核心流程与运维策略，旨在帮助开发与运维团队快速理解现有实现并指导后续演进。
+---
+
+🔗 **相关文档**
+- [开发指南](./DEVELOPMENT.md)
+- [API 文档](./API.md)
+- [安全指南](./SECURITY.md)
+- [部署手册](./DEPLOYMENT.md)
+
+❓ **需要帮助？**
+- 请查看 [TROUBLESHOOTING.md](./TROUBLESHOOTING.md)
+

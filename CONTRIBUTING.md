@@ -1,4 +1,14 @@
 # 贡献指南 (CONTRIBUTING)
+> 📖 **文档导航**：[README](./README.md) · [文档索引](./DOCUMENTATION.md) · [开发指南](./DEVELOPMENT.md) · [安全指南](./SECURITY.md) · [更新日志](./CHANGELOG.md)
+> 🎯 **适用人群**：贡献者 / 开发者
+> ⏱️ **预计阅读时间**：35 分钟
+
+**项目地址**：[https://github.com/QAQ-AWA/ca-pdf](https://github.com/QAQ-AWA/ca-pdf)
+**联系邮箱**：[7780102@qq.com](mailto:7780102@qq.com)
+
+本文阐述贡献流程、代码规范与审核要求。在开始之前，请先了解项目概览 [README.md](./README.md)，开发细节参阅 [DEVELOPMENT.md](./DEVELOPMENT.md)，安全考量见 [SECURITY.md](./SECURITY.md)，版本发布历史可查看 [CHANGELOG.md](./CHANGELOG.md)。
+
+---
 
 感谢您对 ca-pdf 项目的关注！我们欢迎所有形式的贡献，包括代码、文档、测试和反馈。
 
@@ -85,16 +95,9 @@ export DATABASE_URL="postgresql+asyncpg://user:password@localhost:5432/ca_pdf_de
 
 #### 环境变量配置
 
-```bash
-cp .env.example .env
-# 编辑 .env 文件，填写必要的环境变量
-```
-
-关键变量：
-- `JWT_SECRET_KEY`：JWT 签名密钥，使用 `openssl rand -hex 32` 生成
-- `ENCRYPTED_STORAGE_MASTER_KEY`：加密密钥，使用 `openssl rand -hex 32` 生成
-- `DATABASE_URL`：数据库连接字符串
-- `ADMIN_EMAIL`/`ADMIN_PASSWORD`：初始管理员账户
+- 复制 `.env.example` → `.env`（如使用 Docker 亦需复制 `.env.docker.example`）。
+- 所有变量的说明、默认值与安全要求集中在 [DEPLOYMENT.md](./DEPLOYMENT.md) 的“环境变量清单”章节。
+- 在贡献前请确认密钥通过 `openssl rand -base64 32` 生成，`BACKEND_CORS_ORIGINS` 维持 JSON 列表格式。
 
 ### 5. 代码开发
 
@@ -816,3 +819,14 @@ function example() {}
 ---
 
 感谢您对 ca-pdf 项目的贡献！如有任何问题，欢迎通过 GitHub Issues 或 Discussions 联系我们。
+---
+
+🔗 **相关文档**
+- [开发指南](./DEVELOPMENT.md)
+- [安全指南](./SECURITY.md)
+- [更新日志](./CHANGELOG.md)
+- [文档索引](./DOCUMENTATION.md)
+
+❓ **需要帮助？**
+- 请查看 [TROUBLESHOOTING.md](./TROUBLESHOOTING.md)
+

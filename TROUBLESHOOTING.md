@@ -1,4 +1,14 @@
 # ca-pdf 故障排查指南
+> 📖 **文档导航**：[README](./README.md) · [文档索引](./DOCUMENTATION.md) · [部署手册](./DEPLOYMENT.md) · [用户指南](./USER_GUIDE.md) · [API 文档](./API.md)
+> 🎯 **适用人群**：所有角色
+> ⏱️ **预计阅读时间**：25 分钟
+
+**项目地址**：[https://github.com/QAQ-AWA/ca-pdf](https://github.com/QAQ-AWA/ca-pdf)
+**联系邮箱**：[7780102@qq.com](mailto:7780102@qq.com)
+
+本文整理常见问题与排查步骤。请结合 [DEPLOYMENT.md](./DEPLOYMENT.md) 和 [USER_GUIDE.md](./USER_GUIDE.md) 确认前置条件，接口异常可参考 [API.md](./API.md)。如果对整体流程不熟悉，请先阅读 [README.md](./README.md)。
+
+---
 
 本指南旨在帮助运维工程师、开发团队和技术支持人员在最短时间内定位并解决自托管 PDF 电子签章平台 **ca-pdf** 的常见故障。文档覆盖认证、证书管理、PDF 签章、验签、用户管理、数据库、性能、部署等重点领域，并提供标准化的排查步骤、日志位置、常用命令、预防建议以及性能优化策略。通过统一的排障流程和详尽的场景说明，可显著降低沟通成本，提升问题解决效率。
 
@@ -650,3 +660,14 @@ ca-pdf 故障排查总览
 ---
 
 > 若仍无法解决问题，请将本指南中的排查结果、日志和环境信息一并反馈给支持团队，以便快速定位根因。祝您排障顺利、发布稳定！
+---
+
+🔗 **相关文档**
+- [部署手册](./DEPLOYMENT.md)
+- [用户指南](./USER_GUIDE.md)
+- [API 文档](./API.md)
+- [安全指南](./SECURITY.md)
+
+❓ **需要帮助？**
+- 请查看 [TROUBLESHOOTING.md](./TROUBLESHOOTING.md)
+

@@ -1,4 +1,14 @@
 # ca-pdf 中文用户手册
+> 📖 **文档导航**：[README](./README.md) · [文档索引](./DOCUMENTATION.md) · [API 文档](./API.md) · [故障排查](./TROUBLESHOOTING.md)
+> 🎯 **适用人群**：业务用户 / 管理员
+> ⏱️ **预计阅读时间**：20 分钟
+
+**项目地址**：[https://github.com/QAQ-AWA/ca-pdf](https://github.com/QAQ-AWA/ca-pdf)
+**联系邮箱**：[7780102@qq.com](mailto:7780102@qq.com)
+
+本指南面向最终用户，帮助完成证书管理与 PDF 签章流程。若需了解系统背景，请回到 [README.md](./README.md)；自动化或集成需求请阅读 [API.md](./API.md)；遇到问题请参阅 [TROUBLESHOOTING.md](./TROUBLESHOOTING.md)。
+
+---
 
 > 适用版本：v1.0  
 > 文档目标：指导系统管理员、普通业务用户和运维团队高效、安全地使用 ca-pdf 自托管电子签章平台。
@@ -286,3 +296,14 @@
 ---
 
 > 如需进一步技术支持或希望扩展功能，请联系运维团队或在内部工单系统提交需求。祝您使用顺利，持续构建可信的电子签章流程。
+---
+
+🔗 **相关文档**
+- [README](./README.md)
+- [API 文档](./API.md)
+- [部署手册](./DEPLOYMENT.md)
+- [故障排查](./TROUBLESHOOTING.md)
+
+❓ **需要帮助？**
+- 请查看 [TROUBLESHOOTING.md](./TROUBLESHOOTING.md)
+
