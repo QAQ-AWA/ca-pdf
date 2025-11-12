@@ -1,8 +1,47 @@
 # ca-pdf 中文 README
 
-> **简体中文**
+> 📖 **文档导航**：[文档索引](./DOCUMENTATION.md) · [用户指南](./USER_GUIDE.md) · [部署手册](./DEPLOYMENT.md) · [开发指南](./DEVELOPMENT.md) · [API 文档](./API.md)
+> 🎯 **适用人群**：所有角色
+> ⏱️ **预计阅读时间**：15 分钟
+
+**项目地址**：[https://github.com/QAQ-AWA/ca-pdf](https://github.com/QAQ-AWA/ca-pdf)
+**联系邮箱**：[7780102@qq.com](mailto:7780102@qq.com)
+
+本文是 ca-pdf 项目的文档入口，概述产品价值、快速开始和关键特性。专题内容请结合下方的“文档导航”选择对应文档。
+
+---
 
 ca-pdf 是一个自托管的 PDF 电子签章平台，内置完整的证书颁发机构（CA）系统、时间戳服务支持和企业级审计能力。为组织提供可信的数字签章基础设施，支持本地部署和云端运行。
+
+## 📚 文档导航
+
+README 是 ca-pdf 的入口文档。请根据角色选择合适的阅读顺序，并使用下表快速定位所需信息。
+
+### 推荐阅读路径
+
+- 🆕 **新用户**： [README](./README.md) → [USER_GUIDE](./USER_GUIDE.md) → [TROUBLESHOOTING](./TROUBLESHOOTING.md)
+- 👩‍💻 **开发者**： [README](./README.md) → [DEVELOPMENT](./DEVELOPMENT.md) → [ARCHITECTURE](./ARCHITECTURE.md) → [API](./API.md)
+- 🛡️ **管理员**： [README](./README.md) → [DEPLOYMENT](./DEPLOYMENT.md) → [SECURITY](./SECURITY.md) → [USER_GUIDE](./USER_GUIDE.md)
+- 🤝 **贡献者**： [README](./README.md) → [CONTRIBUTING](./CONTRIBUTING.md) → [DEVELOPMENT](./DEVELOPMENT.md)
+
+### 主要文档速览
+
+| 文档 | 适用人群 | 一句话介绍 |
+|-----|----------|------------|
+| [DOCUMENTATION.md](./DOCUMENTATION.md) | 全体读者 | 完整的文档地图与主题入口 |
+| [DOCS_USAGE_GUIDE.md](./DOCS_USAGE_GUIDE.md) | 首次阅读者 | 如何高效使用和维护文档的简明指南 |
+| [README](./README.md) | 所有人 | 产品概览、快速开始、文档导航 |
+| [USER_GUIDE.md](./USER_GUIDE.md) | 业务用户 | 证书管理与 PDF 签章的操作流程 |
+| [DEVELOPMENT.md](./DEVELOPMENT.md) | 开发者 | 本地环境、代码规范与调试技巧 |
+| [ARCHITECTURE.md](./ARCHITECTURE.md) | 架构师 | 系统设计、技术栈与组件交互 |
+| [API.md](./API.md) | 集成开发者 | REST API 端点参考与示例 |
+| [DEPLOYMENT.md](./DEPLOYMENT.md) | 运维 / 管理员 | 部署、环境变量与运维守则 |
+| [SECURITY.md](./SECURITY.md) | 安全负责人 | 密钥管理、安全策略与合规建议 |
+| [TROUBLESHOOTING.md](./TROUBLESHOOTING.md) | 全体读者 | 常见问题与故障处理指南 |
+| [CONTRIBUTING.md](./CONTRIBUTING.md) | 贡献者 | 贡献流程、代码标准与审核要求 |
+| [CHANGELOG.md](./CHANGELOG.md) | 维护者 | 版本变更记录与发布日期 |
+
+> 📌 技术栈版本的详细列表仅保留在 [ARCHITECTURE.md](./ARCHITECTURE.md) 中；环境变量配置集中在 [DEPLOYMENT.md](./DEPLOYMENT.md)；快速开始命令以本 README 为准，其余文档直接引用。
 
 ## 📌 项目介绍
 
@@ -177,42 +216,15 @@ make dev-frontend
 
 ---
 
-## 🛠️ 技术栈
+## 🛠️ 技术栈概览
 
-### 后端
+完整的技术栈版本矩阵仅保留在 [ARCHITECTURE.md](./ARCHITECTURE.md) 的“技术栈”章节。本节简要列出核心组件，帮助快速定位对应文档。
 
-| 组件 | 版本 | 用途 |
-|-----|------|------|
-| **FastAPI** | ^0.110.0 | 高性能异步Web框架 |
-| **SQLAlchemy** | ^2.0.29 | ORM + 数据库抽象层 |
-| **Alembic** | ^1.13.2 | 数据库迁移管理 |
-| **asyncpg** | ^0.29.0 | PostgreSQL异步驱动 |
-| **aiosqlite** | ^0.20.0 | SQLite异步驱动（测试用） |
-| **pyHanko** | ^0.25.0 | PDF签章库（支持签名和验证） |
-| **cryptography** | ^42.0.8 | 密码学库（加密/解密） |
-| **python-jose** | ^3.3.0 | JWT令牌管理 |
-| **Passlib + bcrypt** | - | 密码哈希和验证 |
-
-### 前端
-
-| 组件 | 版本 | 用途 |
-|-----|------|------|
-| **React** | ^18.3.1 | UI框架 |
-| **TypeScript** | ^5.4.0 | 类型安全的JavaScript |
-| **Vite** | ^5.2.0 | 快速构建工具 |
-| **React Router** | ^6.26.2 | 客户端路由 |
-| **Axios** | ^1.7.7 | HTTP客户端 |
-| **pdfjs-dist** | ^5.4.296 | PDF渲染和查看 |
-
-### 部署
-
-| 组件 | 版本 | 用途 |
-|-----|------|------|
-| **Docker** | 23+ | 容器化运行环境 |
-| **Docker Compose** | V2 | 服务编排 |
-| **Traefik** | 3.x | 反向代理和SSL/TLS |
-| **PostgreSQL** | 12+ | 生产数据库 |
-| **Nginx** | latest | 前端服务器 |
+- **后端**：FastAPI、SQLAlchemy、Alembic、pyHanko
+- **前端**：React、TypeScript、Vite、React Router
+- **数据库与存储**：PostgreSQL、SQLite（测试）、Fernet 加密存储
+- **基础设施**：Docker、Traefik、Nginx、Prometheus/Grafana
+- **安全组件**：JWT、bcrypt、TLS、审计日志
 
 ---
 
@@ -322,7 +334,7 @@ ca-pdf/
 
 ### 生产部署概览
 
-生产环境部署请参考 **[DEPLOYMENT.md](./docs/DEPLOYMENT.md)** 文档，包含以下内容：
+生产环境部署请参考 **[DEPLOYMENT.md](./DEPLOYMENT.md)** 文档，包含以下内容：
 
 - 🔒 **SSL/TLS配置**：Let's Encrypt证书自动续期
 - 🔑 **密钥管理**：主密钥离线备份和恢复
@@ -332,60 +344,7 @@ ca-pdf/
 
 ### 环境变量配置
 
-#### 关键生产变量
-
-```bash
-# 安全相关
-SECRET_KEY=<使用 openssl rand -base64 32 生成>
-ENCRYPTED_STORAGE_MASTER_KEY=<Fernet 32字节密钥，需妥善保管>
-
-# 数据库
-DATABASE_URL=postgresql+asyncpg://app_user:password@db:5432/app_db
-POSTGRES_DB=app_db
-POSTGRES_USER=app_user
-POSTGRES_PASSWORD=<强密码>
-
-# 应用配置
-ADMIN_EMAIL=admin@company.com
-ADMIN_PASSWORD=<强密码>
-APP_NAME=ca-pdf
-
-# 域名和反向代理
-BACKEND_DOMAIN=api.company.com
-FRONTEND_DOMAIN=sign.company.com
-TRAEFIK_ACME_EMAIL=admin@company.com
-
-# TSA时间戳（可选）
-TSA_URL=https://freetsa.org/tsr
-TSA_USERNAME=optional
-TSA_PASSWORD=optional
-
-# 文件限制
-PDF_MAX_BYTES=52428800          # 50MB
-PDF_BATCH_MAX_COUNT=10
-SEAL_IMAGE_MAX_BYTES=1048576    # 1MB
-```
-
----
-
-## 📚 文档导航
-
-完整文档组织如下：
-
-| 文档 | 内容 | 适用人群 |
-|-----|------|--------|
-| **[API.md](./docs/API.md)** | REST API详细文档、请求/响应示例、错误码 | 开发者 |
-| **[DEPLOYMENT.md](./docs/DEPLOYMENT.md)** | 生产部署、监控、备份恢复、性能优化 | 运维 |
-| **[USER_GUIDE.md](./docs/USER_GUIDE.md)** | 功能使用指南、常见操作、最佳实践 | 最终用户 |
-| **[DEVELOPMENT.md](./docs/DEVELOPMENT.md)** | 本地开发设置、编码规范、测试覆盖 | 贡献者 |
-| **[ARCHITECTURE.md](./docs/ARCHITECTURE.md)** | 系统设计、数据流、安全架构 | 架构师 |
-| **[TROUBLESHOOTING.md](./docs/TROUBLESHOOTING.md)** | 常见问题、排查步骤、解决方案 | 所有人 |
-| **[SECURITY.md](./docs/SECURITY.md)** | 安全建议、密钥管理、合规指导 | 安全团队 |
-
-快速链接：
-- 🏃 [快速开始](#快速开始) - 5分钟启动项目
-- 🎨 [功能概览](#功能概览) - 功能特性总览
-- 🔧 [技术栈](#技术栈) - 使用的技术组件
+完整的环境变量说明、默认值与安全注意事项请参阅 [DEPLOYMENT.md](./DEPLOYMENT.md) 中的“环境变量清单”章节。本 README 只保留快速启动所需的核心指引。
 
 ---
 
@@ -417,9 +376,21 @@ ca-pdf 采用 **MIT License** 开源协议。详见 [LICENSE](./LICENSE) 文件�
 
 遇到问题或有建议？
 
-- 🐛 **Bug报告**：[GitHub Issues](https://github.com/yourusername/ca-pdf/issues)
-- 💡 **功能建议**：[GitHub Discussions](https://github.com/yourusername/ca-pdf/discussions)
-- 📧 **联系我们**：dev@ca-pdf.io
+- 🐛 **Bug 报告**：[GitHub Issues](https://github.com/QAQ-AWA/ca-pdf/issues)
+- 💡 **功能建议**：[GitHub Discussions](https://github.com/QAQ-AWA/ca-pdf/discussions)
+- 📧 **联系我们**：[7780102@qq.com](mailto:7780102@qq.com)
+
+## 📘 文档维护
+
+- **文档更新策略**：任何影响用户、部署或安全的变更，在合并代码前必须同步更新对应章节，并在 PR 描述中引用修改的文档。
+- **版本同步流程**：发布新版本时，依次更新 [CHANGELOG.md](./CHANGELOG.md) 与 [DOCUMENTATION.md](./DOCUMENTATION.md)，随后核对 README、DEPLOYMENT、API 等文档中的版本号和发布日期，确保信息一致。
+- **贡献方式**：文档改动遵循 [CONTRIBUTING.md](./CONTRIBUTING.md)，在 PR 中附上截图或摘要说明，必要时补充 [DOCS_USAGE_GUIDE.md](./DOCS_USAGE_GUIDE.md) 的导航指引。
+- **文档归属**：
+  - README、DOCUMENTATION、DOCS_USAGE_GUIDE：项目维护者
+  - USER_GUIDE、TROUBLESHOOTING：产品运营与支持团队
+  - DEVELOPMENT、CONTRIBUTING、API：核心开发团队
+  - DEPLOYMENT、SECURITY：运维与安全团队
+- **质量检查**：每季度进行一次文档巡检，重点检查链接有效性、术语统一性和过时内容。
 
 ---
 
@@ -470,6 +441,19 @@ make test-frontend    # 仅前端测试
 ```
 
 ---
+
+🔗 **相关文档**
+- [文档索引](./DOCUMENTATION.md)
+- [用户指南](./USER_GUIDE.md)
+- [开发指南](./DEVELOPMENT.md)
+- [部署手册](./DEPLOYMENT.md)
+
+❓ **需要帮助？**
+- 请查看 [TROUBLESHOOTING.md](./TROUBLESHOOTING.md)
+
+---
+
+**最后更新**：2025-01-15
 
 **ca-pdf** - 🔐 自托管的PDF电子签章平台
 

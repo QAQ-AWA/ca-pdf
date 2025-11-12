@@ -1,4 +1,14 @@
 # 安全指南 (SECURITY)
+> 📖 **文档导航**：[README](./README.md) · [文档索引](./DOCUMENTATION.md) · [部署手册](./DEPLOYMENT.md) · [贡献指南](./CONTRIBUTING.md) · [系统架构](./ARCHITECTURE.md)
+> 🎯 **适用人群**：安全负责人 / 管理员
+> ⏱️ **预计阅读时间**：40 分钟
+
+**项目地址**：[https://github.com/QAQ-AWA/ca-pdf](https://github.com/QAQ-AWA/ca-pdf)
+**联系邮箱**：[7780102@qq.com](mailto:7780102@qq.com)
+
+本指南涵盖密钥管理、访问控制和合规要求。部署前请结合 [DEPLOYMENT.md](./DEPLOYMENT.md)，架构风险评估见 [ARCHITECTURE.md](./ARCHITECTURE.md)，安全变更流程参阅 [CONTRIBUTING.md](./CONTRIBUTING.md)。项目概览可回到 [README.md](./README.md)。
+
+---
 
 本文档提供 ca-pdf 项目的安全最佳实践和指南，旨在帮助用户和开发者安全地部署、运行和维护 ca-pdf 系统。
 
@@ -1499,13 +1509,13 @@ npm update
 
 | 版本 | 日期 | 更改 |
 |-----|------|------|
-| 1.0 | 2024-01-01 | 初始版本 |
+| 1.0 | 2025-01-01 | 初始版本 |
 
 ---
 
 感谢您重视 ca-pdf 的安全。我们致力于维护一个安全的平台。如有任何安全疑虑或建议，欢迎通过上述方式联系我们。
 
-**最后更新**：2024 年 1 月
+**最后更新**：2025 年 1 月
 
 ---
 
@@ -1516,3 +1526,14 @@ npm update
 - 建立安全文化，所有人都应参与
 - 保持警觉，及时发现和应对威胁
 - 学习最新的安全知识和最佳实践
+---
+
+🔗 **相关文档**
+- [部署手册](./DEPLOYMENT.md)
+- [系统架构](./ARCHITECTURE.md)
+- [贡献指南](./CONTRIBUTING.md)
+- [故障排查](./TROUBLESHOOTING.md)
+
+❓ **需要帮助？**
+- 请查看 [TROUBLESHOOTING.md](./TROUBLESHOOTING.md)
+

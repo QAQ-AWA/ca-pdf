@@ -1,4 +1,14 @@
 # 变更日志
+> 📖 **文档导航**：[README](./README.md) · [文档索引](./DOCUMENTATION.md) · [开发指南](./DEVELOPMENT.md) · [API 文档](./API.md)
+> 🎯 **适用人群**：维护者 / 贡献者
+> ⏱️ **预计阅读时间**：15 分钟
+
+**项目地址**：[https://github.com/QAQ-AWA/ca-pdf](https://github.com/QAQ-AWA/ca-pdf)
+**联系邮箱**：[7780102@qq.com](mailto:7780102@qq.com)
+
+本文件记录版本变更与发布时间。获取当前功能背景请阅读 [README.md](./README.md)，开发细节参阅 [DEVELOPMENT.md](./DEVELOPMENT.md)，接口调整可对照 [API.md](./API.md)。
+
+---
 
 所有对此项目的显著更改都将记录在此文件中。
 
@@ -146,7 +156,7 @@
 
 ---
 
-## [0.9.0] - 2024-11-10
+## [0.9.0] - 2025-11-10
 
 ### 预发布版本 - 功能完善与稳定性提升
 
@@ -187,7 +197,7 @@
 
 ---
 
-## [0.8.0] - 2024-11-05
+## [0.8.0] - 2025-11-05
 
 ### Seal API 实现 - 企业印章管理功能
 
@@ -227,7 +237,7 @@
 
 ---
 
-## [0.7.0] - 2024-10-28
+## [0.7.0] - 2025-10-28
 
 ### 用户管理系统实现
 
@@ -268,7 +278,7 @@
 
 ---
 
-## [0.6.0] - 2024-10-20
+## [0.6.0] - 2025-10-20
 
 ### 错误处理标准化与改进
 
@@ -308,7 +318,7 @@
 
 ---
 
-## [0.5.0] - 2024-10-12
+## [0.5.0] - 2025-10-12
 
 ### 文件验证加强与优化
 
@@ -349,7 +359,7 @@
 
 ---
 
-## [0.4.0] - 2024-09-28
+## [0.4.0] - 2025-09-28
 
 ### 前端 UI 开发与优化
 
@@ -384,7 +394,7 @@
 
 ---
 
-## [0.3.0] - 2024-09-15
+## [0.3.0] - 2025-09-15
 
 ### 签章验真功能完整实现
 
@@ -423,7 +433,7 @@
 
 ---
 
-## [0.2.0] - 2024-08-30
+## [0.2.0] - 2025-08-30
 
 ### 批量签章与高级功能
 
@@ -460,7 +470,7 @@
 
 ---
 
-## [0.1.0] - 2024-08-10
+## [0.1.0] - 2025-08-10
 
 ### 初始发布 - 核心功能实现
 
@@ -746,10 +756,10 @@ POST /api/v1/pdf/sign
 ## 链接与参考
 
 ### 官方资源
-- 📖 [API 文档](./docs/API.md) - REST API 详细文档
+- 📖 [API 文档](./API.md) - REST API 详细文档
 - 📚 [部署指南](./DEPLOYMENT.md) - 生产部署指南
-- 🛠️ [开发文档](./docs/DEVELOPMENT.md) - 开发环境设置
-- 📝 [用户手册](./docs/USER_GUIDE.md) - 功能使用指南
+- 🛠️ [开发文档](./DEVELOPMENT.md) - 开发环境设置
+- 📝 [用户手册](./USER_GUIDE.md) - 功能使用指南
 
 ### 技术栈文档
 - [FastAPI 官方文档](https://fastapi.tiangolo.com/)
@@ -758,13 +768,13 @@ POST /api/v1/pdf/sign
 - [React 官方文档](https://react.dev/)
 
 ### 社区与支持
-- 🐛 [GitHub Issues](https://github.com/yourusername/ca-pdf/issues)
-- 💬 [GitHub Discussions](https://github.com/yourusername/ca-pdf/discussions)
-- 📧 [联系邮箱](mailto:dev@ca-pdf.io)
+- 🐛 [GitHub Issues](https://github.com/QAQ-AWA/ca-pdf/issues)
+- 💬 [GitHub Discussions](https://github.com/QAQ-AWA/ca-pdf/discussions)
+- 📧 [联系邮箱](mailto:7780102@qq.com)
 
 ### 版本对比
-- [GitHub Releases](https://github.com/yourusername/ca-pdf/releases)
-- [版本下载](https://github.com/yourusername/ca-pdf/releases)
+- [GitHub Releases](https://github.com/QAQ-AWA/ca-pdf/releases)
+- [版本下载](https://github.com/QAQ-AWA/ca-pdf/releases)
 
 ---
 
@@ -772,4 +782,15 @@ POST /api/v1/pdf/sign
 
 Made with ❤️ for secure and trustworthy document signing
 
-Last updated: 2024-11-XX
+Last updated: 2025-11-XX
+---
+
+🔗 **相关文档**
+- [贡献指南](./CONTRIBUTING.md)
+- [开发指南](./DEVELOPMENT.md)
+- [API 文档](./API.md)
+- [安全指南](./SECURITY.md)
+
+❓ **需要帮助？**
+- 请查看 [TROUBLESHOOTING.md](./TROUBLESHOOTING.md)
+
