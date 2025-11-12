@@ -142,6 +142,116 @@ git push origin feature/xxx
 
 ---
 
+## 📝 文档贡献与维护
+
+我们将文档视为与代码同等重要的资产，所有贡献者需遵循以下约定：
+
+### 核心原则
+- 任何影响用户体验、部署、安全或 API 行为的代码改动，必须同步更新对应文档并在 PR 描述中说明。
+- 新功能合并后需在 **7 天内** 完成文档更新；用户反馈需在 **3 个工作日内** 回复或确认处理计划。
+- 每次发布前执行“发布前文档检查清单”，确保信息完整且可追溯。
+
+### 更新规则
+- **API 变更**：
+  - 更新对应的端点实现代码
+  - 同步更新 [API.md](./API.md)
+  - 更新前端 API 客户端（如适用）
+  - 在 [CHANGELOG.md](./CHANGELOG.md) 中记录变更
+  - 如为破坏性改动，在 [USER_GUIDE.md](./USER_GUIDE.md) 中添加迁移指引
+- **数据库变更**：
+  - 创建 Alembic 迁移脚本
+  - 更新 [ARCHITECTURE.md](./ARCHITECTURE.md) 中的数据库设计部分
+  - 在 [DEVELOPMENT.md](./DEVELOPMENT.md) 中补充数据库操作指南
+  - 在 [CHANGELOG.md](./CHANGELOG.md) 中记录变更
+  - 对破坏性改动提供升级指南
+- **安全变更**：
+  - 更新 [SECURITY.md](./SECURITY.md) 的相关章节
+  - 在 [CHANGELOG.md](./CHANGELOG.md) 中添加安全更新记录
+  - 公布公开漏洞时发布公告，并更新受影响文档
+- **功能添加**：
+  - 在 [CHANGELOG.md](./CHANGELOG.md) 中记录新功能
+  - 更新 [USER_GUIDE.md](./USER_GUIDE.md) 与 [README.md](./README.md)
+  - 将相关端点补充至 [API.md](./API.md)
+  - 如改变架构，更新 [ARCHITECTURE.md](./ARCHITECTURE.md)
+  - 在 [TROUBLESHOOTING.md](./TROUBLESHOOTING.md) 中新增常见问题
+
+### 发布前检查清单
+在发布分支合并前，请按照以下顺序完成核对：
+
+- [ ] 所有新功能已在 [API.md](./API.md) 中记录
+- [ ] [CHANGELOG.md](./CHANGELOG.md) 更新完备
+- [ ] [USER_GUIDE.md](./USER_GUIDE.md) 已同步最新体验
+- [ ] [ARCHITECTURE.md](./ARCHITECTURE.md) 与实现一致
+- [ ] [TROUBLESHOOTING.md](./TROUBLESHOOTING.md) 已添加新的常见问题
+- [ ] `scripts/validate-docs.sh` 执行通过
+- [ ] 文档中的示例代码已经过验证
+
+### 维护记录
+- 所有文档修改都必须在 [docs/MAINTENANCE_LOG.md](./docs/MAINTENANCE_LOG.md) 记录，建议在合并当天完成登记。
+- 记录内容包括日期、更新者、更新的文档、修改摘要以及关联 Issue/PR。
+- 如一次变更影响多个文档，请拆分为多条记录便于追踪。
+
+### 文档模板
+- **新功能说明模板**（复制到对应文档中使用）：
+  ```markdown
+  ## 功能名称
+  
+  ### 简介
+  一句话说明功能
+  
+  ### 使用场景
+  何时使用此功能
+  
+  ### 快速开始
+  最简单的使用步骤
+  
+  ### 详细说明
+  完整的功能说明和参数
+  
+  ### 代码示例
+  实际的使用代码示例（多语言）
+  
+  ### 常见问题
+  此功能的常见问题和解答
+  
+  ### 相关资源
+  指向 API 文档、架构说明、故障排查的链接
+  ```
+- **API 端点模板**：
+  ```markdown
+  ## 端点: METHOD /path
+  
+  ### 认证要求
+  必需的权限
+  
+  ### 请求参数
+  参数表格
+  
+  ### 请求示例
+  curl、Python、TypeScript 示例
+  
+  ### 响应示例
+  成功响应和错误响应
+  
+  ### 错误处理
+  可能的错误码和处理方式
+  
+  ### 相关端点
+  相关的 API 端点链接
+  ```
+
+### Issue 标签与反馈
+- 使用 `documentation` 标签标记文档相关的 Issue 与 PR，方便每周巡检。
+- 在 PR 模板中填写“文档检查清单”，未更新的条目需说明原因。
+- 复杂文档改动建议在 PR 中附上截图或渲染结果，帮助 reviewer 快速确认呈现效果。
+
+### 审查要求
+- Reviewer 需确认代码改动是否同步更新文档，并验证文档内容与实现一致。
+- 对于新增示例代码，需要确保其能通过 `scripts/validate-docs.sh` 的语法检查，并可在真实环境中执行。
+- 若发现文档与代码不一致，应阻止合并并要求补充说明或提交后续 PR。
+
+---
+
 ## 📋 代码质量要求
 
 ### Python 后端代码规范

@@ -1,0 +1,67 @@
+name: Documentation Guardrails
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+jobs:
+  documentation:
+    name: Validate documentation updates
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Ensure documentation accompanies code changes
+        shell: bash
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.sha }}
+        run: |
+          if [ -z "${BASE_SHA}" ]; then
+              echo "Base commit SHA not available; skipping diff-based documentation checks."
+              exit 0
+          fi
+
+          git diff --name-only "${BASE_SHA}" "${HEAD_SHA}" > changed_files.txt
+          if [ ! -s changed_files.txt ]; then
+              echo "No file changes detected in this pull request."
+              exit 0
+          fi
+
+          echo "Changed files:"
+          cat changed_files.txt
+
+          CODE_CHANGED=$(grep -E '^(backend/|frontend/|config/|scripts/[^/]+\.(py|ts|tsx|js)|pyproject\.toml|poetry\.lock|package\.json|package-lock\.json|pnpm-lock\.yaml|yarn\.lock)' changed_files.txt || true)
+          DOC_CHANGED=$(grep -E '(\.md$|^docs/)' changed_files.txt || true)
+          API_CHANGED=$(grep -E '^backend/app/api' changed_files.txt || true)
+
+          if [ -n "${CODE_CHANGED}" ] && [ -z "${DOC_CHANGED}" ]; then
+              echo "::error::Detected code changes without accompanying documentation updates."
+              echo "Affected files:"
+              echo "${CODE_CHANGED}"
+              exit 1
+          fi
+
+          if [ -n "${API_CHANGED}" ] && ! grep -q '^API\.md$' changed_files.txt; then
+              echo "::error::API layer changes detected but API.md was not modified."
+              exit 1
+          fi
+
+          if [ -n "${CODE_CHANGED}" ] && ! grep -q '^CHANGELOG\.md$' changed_files.txt; then
+              echo "::error::Code changes detected but CHANGELOG.md was not updated."
+              exit 1
+          fi
+
+      - name: Run documentation validation script
+        shell: bash
+        run: |
+          scripts/validate-docs.sh
