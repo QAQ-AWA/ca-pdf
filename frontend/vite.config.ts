@@ -13,4 +13,14 @@ export default defineConfig({
     port: 5173,
     open: true,
   },
+  build: {
+    rollupOptions: {
+      output: {
+        assetFileNames: "assets/[name]-[hash][extname]",
+      },
+    },
+  },
+  optimizeDeps: {
+    include: ["pdfjs-dist/build/pdf.worker.min.mjs"],
+  },
 });

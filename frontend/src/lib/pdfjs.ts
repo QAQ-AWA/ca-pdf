@@ -1,6 +1,6 @@
 import { GlobalWorkerOptions, getDocument } from "pdfjs-dist";
 import type { PDFDocumentProxy, PDFPageProxy, PageViewport, RenderTask } from "pdfjs-dist/types/src/display/api";
-import workerSrc from "pdfjs-dist/build/pdf.worker.min.js?url";
+import workerSrc from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 
 if (typeof window !== "undefined") {
   GlobalWorkerOptions.workerSrc = workerSrc;
