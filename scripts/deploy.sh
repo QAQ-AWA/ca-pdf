@@ -577,8 +577,6 @@ EOF
 write_compose_file() {
   build_traefik_assets
   cat >"${COMPOSE_FILE}" <<EOF
-version: "3.9"
-
 services:
   traefik:
     image: traefik:v3.1

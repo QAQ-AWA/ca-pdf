@@ -44,6 +44,18 @@ log_success() {
   printf "%b✔%b %s\n" "${GREEN}" "${RESET}" "$1"
 }
 
+prompt_confirm() {
+  local prompt_msg=${1:-"确认继续吗?"}
+  local default_choice=${2:-"y"}
+  local suffix="[y/N]"
+  if [[ "${default_choice}" =~ ^([Yy])$ ]]; then
+    suffix="[Y/n]"
+  fi
+  read -r -p "${prompt_msg} ${suffix} " response || true
+  response=${response:-${default_choice}}
+  [[ "${response}" =~ ^([Yy])$ ]]
+}
+
 on_error() {
   local exit_code=$?
   local line_no=${1:-unknown}
@@ -345,34 +357,102 @@ check_network() {
    return 0
  }
 
+clone_project_code() {
+  log_step "同步项目代码"
+
+  local git_url="https://github.com/${CAPDF_REMOTE_REPO}.git"
+  local temp_dir
+
+  if [[ -d "${INSTALL_ROOT}/.git" ]]; then
+    log_info "检测到现有 Git 仓库"
+    if prompt_confirm "是否更新到 ${CAPDF_CHANNEL} 分支的最新代码？" "y"; then
+      log_info "获取最新代码..."
+      pushd "${INSTALL_ROOT}" >/dev/null || return 1
+      if ! git fetch --depth 1 origin "${CAPDF_CHANNEL}" 2>&1 | tee -a "${LOG_FILE}"; then
+        log_warn "拉取最新代码失败，保留当前版本"
+        popd >/dev/null || true
+        return 0
+      fi
+      if ! git checkout "${CAPDF_CHANNEL}" 2>&1 | tee -a "${LOG_FILE}"; then
+        log_warn "无法切换到分支 ${CAPDF_CHANNEL}，保留当前版本"
+        popd >/dev/null || true
+        return 0
+      fi
+      if ! git reset --hard "origin/${CAPDF_CHANNEL}" 2>&1 | tee -a "${LOG_FILE}"; then
+        log_warn "代码重置失败，保留当前版本"
+        popd >/dev/null || true
+        return 0
+      fi
+      popd >/dev/null || true
+      log_success "项目代码已更新"
+    else
+      log_info "保留当前项目代码"
+    fi
+    return 0
+  fi
+
+  if [[ -d "${INSTALL_ROOT}/backend" || -d "${INSTALL_ROOT}/frontend" ]]; then
+    log_warn "检测到现有项目目录但无 Git 仓库"
+    if prompt_confirm "是否覆盖为 ${CAPDF_CHANNEL} 分支的最新代码？" "y"; then
+      rm -rf "${INSTALL_ROOT}/backend" "${INSTALL_ROOT}/frontend"
+    else
+      log_info "保留现有代码"
+      return 0
+    fi
+  fi
+
+  temp_dir=$(mktemp -d) || {
+    log_error "无法创建临时目录"
+    return 1
+  }
+
+  log_info "从 ${git_url} 克隆分支 ${CAPDF_CHANNEL}"
+  if ! git clone --depth 1 --branch "${CAPDF_CHANNEL}" "${git_url}" "${temp_dir}/repo" 2>&1 | tee -a "${LOG_FILE}"; then
+    log_error "代码克隆失败，请检查网络或分支名称"
+    rm -rf "${temp_dir}"
+    return 1
+  fi
+
+  log_info "同步仓库内容到 ${INSTALL_ROOT}"
+  cp -a "${temp_dir}/repo/." "${INSTALL_ROOT}/" || {
+    log_error "复制项目文件失败"
+    rm -rf "${temp_dir}"
+    return 1
+  }
+
+  rm -rf "${temp_dir}"
+  log_success "项目代码已准备就绪"
+  return 0
+}
+
 install_capdf_files() {
-   log_step "下载管理脚本"
-   download_asset "scripts/deploy.sh" "${SCRIPTS_DIR}/deploy.sh" || {
-     log_error "deploy.sh 下载失败，安装无法继续"
-     return 1
-   }
-   chmod +x "${SCRIPTS_DIR}/deploy.sh" || log_warn "无法设置 deploy.sh 为可执行"
+  log_step "下载管理脚本"
+  download_asset "scripts/deploy.sh" "${SCRIPTS_DIR}/deploy.sh" || {
+    log_error "deploy.sh 下载失败，安装无法继续"
+    return 1
+  }
+  chmod +x "${SCRIPTS_DIR}/deploy.sh" || log_warn "无法设置 deploy.sh 为可执行"
 
-   download_asset "scripts/install.sh" "${SCRIPTS_DIR}/install.sh" || {
-     log_warn "install.sh 下载失败，跳过"
-   }
-   if [[ -f "${SCRIPTS_DIR}/install.sh" ]]; then
-     chmod +x "${SCRIPTS_DIR}/install.sh" || log_warn "无法设置 install.sh 为可执行"
-   fi
+  download_asset "scripts/install.sh" "${SCRIPTS_DIR}/install.sh" || {
+    log_warn "install.sh 下载失败，跳过"
+  }
+  if [[ -f "${SCRIPTS_DIR}/install.sh" ]]; then
+    chmod +x "${SCRIPTS_DIR}/install.sh" || log_warn "无法设置 install.sh 为可执行"
+  fi
 
-   log_step "同步模版文件"
-   download_asset ".env.example" "${INSTALL_ROOT}/.env.example" || {
-     log_warn ".env.example 下载失败"
-   }
-   download_asset ".env.docker.example" "${INSTALL_ROOT}/.env.docker.example" || {
-     log_warn ".env.docker.example 下载失败"
-   }
-   download_asset "docker-compose.yml" "${INSTALL_ROOT}/docker-compose.example.yml" || {
-     log_warn "docker-compose.yml 下载失败"
-   }
-   log_success "脚本文件已安装"
-   return 0
- }
+  log_step "同步模版文件"
+  download_asset ".env.example" "${INSTALL_ROOT}/.env.example" || {
+    log_warn ".env.example 下载失败"
+  }
+  download_asset ".env.docker.example" "${INSTALL_ROOT}/.env.docker.example" || {
+    log_warn ".env.docker.example 下载失败"
+  }
+  download_asset "docker-compose.yml" "${INSTALL_ROOT}/docker-compose.example.yml" || {
+    log_warn "docker-compose.yml 下载失败"
+  }
+  log_success "脚本文件已安装"
+  return 0
+}
 
 create_launcher() {
    log_step "创建 capdf 命令"
@@ -532,6 +612,8 @@ main() {
       log_warn "Docker Compose 可能安装失败，但安装继续"
     }
     ensure_user_in_docker_group
+
+    clone_project_code || exit 1
 
     install_capdf_files || exit 1
     create_launcher || exit 1
