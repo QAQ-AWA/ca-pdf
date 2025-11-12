@@ -26,6 +26,7 @@
 | [SECURITY.md](./SECURITY.md) | 安全负责人 | 密钥管理、安全策略、合规要求 | 运维与安全团队 |
 | [CONTRIBUTING.md](./CONTRIBUTING.md) | 贡献者 | 贡献流程、代码标准、评审指引 | 核心开发团队 |
 | [CHANGELOG.md](./CHANGELOG.md) | 维护者 | 版本演进记录、发布日期 | 项目维护者 |
+| [文档维护记录](./docs/MAINTENANCE_LOG.md) | 项目维护者 | 文档更新登记、责任人追踪 | 核心维护者 |
 
 > ℹ️ 技术栈版本仅在 [ARCHITECTURE.md](./ARCHITECTURE.md) 中维护；环境变量清单集中在 [DEPLOYMENT.md](./DEPLOYMENT.md)；接口示例以 [API.md](./API.md) 为准。
 
@@ -75,10 +76,11 @@
 
 ## 更新与维护
 
-- 文档统一遵循 README 中的“📘 文档维护”策略。
-- 每次重要功能或配置更新，需同步修改对应章节并更新 [CHANGELOG.md](./CHANGELOG.md)。
-- 使用 PR 模板中的“文档更新”复选框记录已修改的文件，若未修改需说明原因。
-- 至少每季度验证一次链接有效性，可使用 `markdown-link-check` 或浏览器插件。
+- 文档统一遵循 README 中的“📘 文档维护”策略，并在变更后 7 天内完成同步。
+- 每次重要功能或配置更新，需同步修改对应章节、更新 [CHANGELOG.md](./CHANGELOG.md)，并在 [docs/MAINTENANCE_LOG.md](./docs/MAINTENANCE_LOG.md) 登记。
+- 使用 PR 模板中的“文档检查清单”记录状态，必要时在描述中说明未更新原因。
+- 在 CI 中运行 `scripts/validate-docs.sh` 以校验链接、API 对齐与示例语法，并配合 `documentation-guardrails` 工作流自动拦截遗漏。
+- 至少每季度进行一次手动巡检，重点关注链接有效性、示例可运行性与术语一致性。
 
 ## 快速入口
 

@@ -382,15 +382,56 @@ ca-pdf 采用 **MIT License** 开源协议。详见 [LICENSE](./LICENSE) 文件�
 
 ## 📘 文档维护
 
-- **文档更新策略**：任何影响用户、部署或安全的变更，在合并代码前必须同步更新对应章节，并在 PR 描述中引用修改的文档。
-- **版本同步流程**：发布新版本时，依次更新 [CHANGELOG.md](./CHANGELOG.md) 与 [DOCUMENTATION.md](./DOCUMENTATION.md)，随后核对 README、DEPLOYMENT、API 等文档中的版本号和发布日期，确保信息一致。
-- **贡献方式**：文档改动遵循 [CONTRIBUTING.md](./CONTRIBUTING.md)，在 PR 中附上截图或摘要说明，必要时补充 [DOCS_USAGE_GUIDE.md](./DOCS_USAGE_GUIDE.md) 的导航指引。
-- **文档归属**：
-  - README、DOCUMENTATION、DOCS_USAGE_GUIDE：项目维护者
-  - USER_GUIDE、TROUBLESHOOTING：产品运营与支持团队
-  - DEVELOPMENT、CONTRIBUTING、API：核心开发团队
-  - DEPLOYMENT、SECURITY：运维与安全团队
-- **质量检查**：每季度进行一次文档巡检，重点检查链接有效性、术语统一性和过时内容。
+我们承诺文档与代码保持同频更新，并在变更后的 **7 天内** 完成所有必要的文档同步，用户反馈将在 **3 个工作日内** 得到响应。
+
+### 长期维护承诺
+- 任何影响用户、部署、安全或运维的改动，必须在合并前同步更新对应文档并在 PR 中注明。
+- 新功能合并后 1 周内完成 README / USER_GUIDE / API 文档等必要更新。
+- 每次发布都会生成对应的文档版本记录，并保留历史版本以供追溯。
+
+### 定期维护节奏
+- **每周**：检查带有 `documentation` 标签的 GitHub Issues 与 PR 评论，收集并处理文档反馈。
+- **每个功能合并时**：确认关联文档（API、用户指南、示例代码等）已更新，并在 [docs/MAINTENANCE_LOG.md](./docs/MAINTENANCE_LOG.md) 中登记。
+- **每个版本发布前**：执行发布前文档检查清单，更新 [CHANGELOG.md](./CHANGELOG.md) 与版本说明。
+- **每季度**：开展一次全量文档审查，重点关注准确性、时效性和链接有效性。
+
+### 发布前文档检查清单
+- [ ] 所有新功能都在 [API.md](./API.md) 中有文档
+- [ ] 所有 API 变更都在 [CHANGELOG.md](./CHANGELOG.md) 中记录
+- [ ] 用户指南已更新新功能
+- [ ] 架构设计文档与代码一致
+- [ ] [TROUBLESHOOTING.md](./TROUBLESHOOTING.md) 中添加新的常见问题
+- [ ] 全部文档链接已通过 `scripts/validate-docs.sh` 检查
+- [ ] 文档中的代码示例已经验证可以运行
+
+### 文档所有权
+| 文档 | 主要负责人 | 备援团队 |
+|------|------------|----------|
+| README.md | 项目管理者 | 核心维护者 |
+| API.md | 后端技术负责人 | 核心开发团队 |
+| DEPLOYMENT.md | 运维负责人 | 运维与安全团队 |
+| DEVELOPMENT.md | 开发团队 | 核心维护者 |
+| USER_GUIDE.md | 产品 / 文档团队 | 技术支持团队 |
+| ARCHITECTURE.md | 技术架构师 | 核心开发团队 |
+| TROUBLESHOOTING.md | 技术支持团队 | 运维团队 |
+| CONTRIBUTING.md | 项目负责人 | 核心维护者 |
+| SECURITY.md | 安全负责人 | 运维与安全团队 |
+| CHANGELOG.md | 项目管理者 | 发布经理 |
+
+### 自动化守护
+- PR 模板新增“文档检查清单”，在合并前逐项确认。
+- [scripts/validate-docs.sh](./scripts/validate-docs.sh) 会校验内部链接、CHANGELOG 格式、API 文档一致性以及 Markdown 中的 Python 示例语法。
+- `.github/workflows/documentation-guardrails.yml` 会在 PR 中强制检查：代码改动是否伴随文档更新、API 变更是否同步到 API.md、以及 CHANGELOG 是否更新。
+
+### 文档版本管理与记录
+- 发布版本时在 [CHANGELOG.md](./CHANGELOG.md) 中同步记录文档版本信息，并在必要时将旧版本移入 `docs/versions/`（待上线）。
+- 所有文档维护活动必须登记在 [docs/MAINTENANCE_LOG.md](./docs/MAINTENANCE_LOG.md)，便于追踪责任人和更新时间。
+- 废弃或破坏性变更需在相关文档中标注弃用说明及迁移指南。
+
+### 反馈渠道与质量指标
+- 反馈渠道：`documentation` 标签的 GitHub Issues、PR 评论以及邮箱 [7780102@qq.com](mailto:7780102@qq.com)。
+- 质量指标：记录文档更新频率、用户反馈数量、文档准确率（错误报告量）与覆盖率（受影响功能是否有文档）。
+- 文档贡献指南与模板请参阅 [CONTRIBUTING.md](./CONTRIBUTING.md) 的“文档贡献”章节。
 
 ---
 
