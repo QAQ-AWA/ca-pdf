@@ -1,6 +1,16 @@
 # ca-pdf 开发指南
 
+> **📖 文档导航** | [README](README.md) | [架构文档](ARCHITECTURE.md) | [API文档](API.md) | [贡献指南](CONTRIBUTING.md)
+> 
+> **👥 适用人群**: 开发者、贡献者  
+> **⏱️ 阅读时间**: 约 15 分钟
+
+---
+
 本文档为 ca-pdf 项目的贡献者和开发人员提供完整的开发指南，包括环境设置、项目结构、代码规范、开发流程和调试技巧。
+
+**项目地址**: https://github.com/QAQ-AWA/ca-pdf  
+**联系邮箱**: 7780102@qq.com
 
 ## 目录
 
@@ -1496,6 +1506,25 @@ make restart
 
 ---
 
-**更新日期**：2024 年 1 月
+## 🔗 相关文档
 
-**问题反馈**：请在 [GitHub Issues](https://github.com/QAQ-AWA/ca-pdf/issues) 中报告问题或建议。
+- **[README](README.md)** - 项目介绍和快速开始
+- **[架构文档](ARCHITECTURE.md)** - 系统设计和技术架构
+- **[API文档](API.md)** - REST API参考
+- **[贡献指南](CONTRIBUTING.md)** - 代码贡献流程
+- **[安全指南](SECURITY.md)** - 安全开发实践
+- **[故障排除](TROUBLESHOOTING.md)** - 开发环境问题排查
+
+## ❓ 需要帮助？
+
+- 查看 **[故障排除文档](TROUBLESHOOTING.md)** 获取开发环境问题解决方案
+- 阅读 **[贡献指南](CONTRIBUTING.md)** 了解代码贡献流程
+- 在 **[GitHub Issues](https://github.com/QAQ-AWA/ca-pdf/issues)** 提问
+
+---
+
+**ca-pdf 开发指南**
+
+**项目地址**: https://github.com/QAQ-AWA/ca-pdf  
+**联系邮箱**: 7780102@qq.com  
+**更新日期**: 2025年1月15日

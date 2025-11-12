@@ -1,6 +1,16 @@
 # 安全指南 (SECURITY)
 
+> **📖 文档导航** | [README](README.md) | [部署指南](DEPLOYMENT.md) | [架构文档](ARCHITECTURE.md) | [贡献指南](CONTRIBUTING.md)
+> 
+> **👥 适用人群**: 安全团队、运维人员、开发者  
+> **⏱️ 阅读时间**: 约 20 分钟
+
+---
+
 本文档提供 ca-pdf 项目的安全最佳实践和指南，旨在帮助用户和开发者安全地部署、运行和维护 ca-pdf 系统。
+
+**项目地址**: https://github.com/QAQ-AWA/ca-pdf  
+**联系邮箱**: 7780102@qq.com
 
 ## 🔒 安全政策
 
@@ -8,8 +18,8 @@
 
 如果您发现 ca-pdf 中的安全漏洞，**请勿公开披露**，而应通过以下方式报告：
 
-1. **发送 Email**：security@example.com（待确定实际邮箱地址）
-2. **通过 GitHub**：创建私密安全 advisory（使用 GitHub 的安全功能）
+1. **发送 Email**：7780102@qq.com
+2. **通过 GitHub**：在 https://github.com/QAQ-AWA/ca-pdf/security/advisories 创建私密安全 advisory
 3. **描述漏洞**：详细描述漏洞的性质、影响和复现步骤
 
 ### 报告内容
@@ -1503,9 +1513,30 @@ npm update
 
 ---
 
+## 🔗 相关文档
+
+- **[README](README.md)** - 项目介绍和快速开始
+- **[部署指南](DEPLOYMENT.md)** - 生产环境安全部署
+- **[架构文档](ARCHITECTURE.md)** - 系统安全架构设计
+- **[贡献指南](CONTRIBUTING.md)** - 安全代码开发规范
+- **[故障排除](TROUBLESHOOTING.md)** - 安全问题排查
+
+## ❓ 需要帮助？
+
+- 查看 **[部署指南](DEPLOYMENT.md)** 了解安全配置
+- 阅读 **[架构文档](ARCHITECTURE.md)** 了解安全设计
+- 在 **[GitHub Security Advisories](https://github.com/QAQ-AWA/ca-pdf/security/advisories)** 提交安全问题
+- 发送邮件到 **7780102@qq.com**
+
+---
+
+**ca-pdf 安全指南**
+
 感谢您重视 ca-pdf 的安全。我们致力于维护一个安全的平台。如有任何安全疑虑或建议，欢迎通过上述方式联系我们。
 
-**最后更新**：2024 年 1 月
+**项目地址**: https://github.com/QAQ-AWA/ca-pdf  
+**联系邮箱**: 7780102@qq.com  
+**最后更新**: 2025年1月15日
 
 ---
 

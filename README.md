@@ -1,8 +1,40 @@
 # ca-pdf 中文 README
 
-> **简体中文**
+> **简体中文** | **项目地址**: https://github.com/QAQ-AWA/ca-pdf | **联系邮箱**: 7780102@qq.com
 
 ca-pdf 是一个自托管的 PDF 电子签章平台，内置完整的证书颁发机构（CA）系统、时间戳服务支持和企业级审计能力。为组织提供可信的数字签章基础设施，支持本地部署和云端运行。
+
+---
+
+## 📖 文档导航
+
+### 快速导航
+
+根据您的角色，选择合适的阅读路径：
+
+| 角色 | 推荐阅读顺序 | 说明 |
+|-----|------------|------|
+| **🆕 新用户** | [README](#) → [用户指南](USER_GUIDE.md) → [故障排除](TROUBLESHOOTING.md) | 了解产品功能，学习如何使用 |
+| **👨‍💻 开发者** | [README](#) → [开发文档](DEVELOPMENT.md) → [架构文档](ARCHITECTURE.md) → [API文档](API.md) | 理解系统架构，开始编码 |
+| **🔧 运维人员** | [README](#) → [部署指南](DEPLOYMENT.md) → [安全指南](SECURITY.md) → [故障排除](TROUBLESHOOTING.md) | 部署系统，确保安全运行 |
+| **🤝 贡献者** | [README](#) → [贡献指南](CONTRIBUTING.md) → [开发文档](DEVELOPMENT.md) → [变更日志](CHANGELOG.md) | 了解贡献流程，提交代码 |
+
+### 完整文档列表
+
+| 文档 | 描述 | 适用人群 | 阅读时间 |
+|-----|------|---------|---------|
+| **[README.md](README.md)** | 项目介绍、快速开始、核心功能 | 所有人 | 10分钟 |
+| **[USER_GUIDE.md](USER_GUIDE.md)** | 详细使用指南、操作流程、最佳实践 | 最终用户 | 15分钟 |
+| **[API.md](API.md)** | REST API参考、请求响应示例 | 开发者 | 20分钟 |
+| **[DEVELOPMENT.md](DEVELOPMENT.md)** | 本地开发环境、编码规范、测试 | 开发者 | 15分钟 |
+| **[DEPLOYMENT.md](DEPLOYMENT.md)** | 生产部署、配置、监控、备份 | 运维人员 | 20分钟 |
+| **[ARCHITECTURE.md](ARCHITECTURE.md)** | 系统架构、设计决策、数据流 | 架构师、开发者 | 25分钟 |
+| **[SECURITY.md](SECURITY.md)** | 安全最佳实践、密钥管理、合规 | 安全团队、运维 | 20分钟 |
+| **[TROUBLESHOOTING.md](TROUBLESHOOTING.md)** | 常见问题、错误解决、调试技巧 | 所有人 | 15分钟 |
+| **[CONTRIBUTING.md](CONTRIBUTING.md)** | 贡献指南、开发流程、代码规范 | 贡献者 | 15分钟 |
+| **[CHANGELOG.md](CHANGELOG.md)** | 版本历史、功能更新、已知问题 | 所有人 | 15分钟 |
+
+---
 
 ## 📌 项目介绍
 
@@ -322,7 +354,7 @@ ca-pdf/
 
 ### 生产部署概览
 
-生产环境部署请参考 **[DEPLOYMENT.md](./docs/DEPLOYMENT.md)** 文档，包含以下内容：
+生产环境部署请参考 **[DEPLOYMENT.md](DEPLOYMENT.md)** 文档，包含以下内容：
 
 - 🔒 **SSL/TLS配置**：Let's Encrypt证书自动续期
 - 🔑 **密钥管理**：主密钥离线备份和恢复
@@ -417,9 +449,11 @@ ca-pdf 采用 **MIT License** 开源协议。详见 [LICENSE](./LICENSE) 文件�
 
 遇到问题或有建议？
 
-- 🐛 **Bug报告**：[GitHub Issues](https://github.com/yourusername/ca-pdf/issues)
-- 💡 **功能建议**：[GitHub Discussions](https://github.com/yourusername/ca-pdf/discussions)
-- 📧 **联系我们**：dev@ca-pdf.io
+- 🐛 **Bug报告**：[GitHub Issues](https://github.com/QAQ-AWA/ca-pdf/issues)
+- 💡 **功能建议**：[GitHub Discussions](https://github.com/QAQ-AWA/ca-pdf/discussions)
+- 📧 **联系我们**：7780102@qq.com
+
+详细贡献指南请参考 **[CONTRIBUTING.md](CONTRIBUTING.md)**
 
 ---
 
@@ -471,6 +505,45 @@ make test-frontend    # 仅前端测试
 
 ---
 
+## 🔗 相关文档
+
+- **[用户指南](USER_GUIDE.md)** - 详细的功能使用说明
+- **[API文档](API.md)** - REST API参考和示例
+- **[部署指南](DEPLOYMENT.md)** - 生产环境部署
+- **[开发文档](DEVELOPMENT.md)** - 本地开发环境设置
+- **[架构文档](ARCHITECTURE.md)** - 系统设计和架构
+- **[安全指南](SECURITY.md)** - 安全最佳实践
+- **[故障排除](TROUBLESHOOTING.md)** - 常见问题解决
+- **[贡献指南](CONTRIBUTING.md)** - 如何贡献代码
+- **[变更日志](CHANGELOG.md)** - 版本历史和更新
+
+## ❓ 需要帮助？
+
+- 查看 **[故障排除文档](TROUBLESHOOTING.md)** 获取常见问题解决方案
+- 阅读 **[用户指南](USER_GUIDE.md)** 了解详细使用方法
+- 在 **[GitHub Issues](https://github.com/QAQ-AWA/ca-pdf/issues)** 提问
+- 发送邮件到 **7780102@qq.com**
+
+## 📝 文档维护
+
+本项目文档采用统一的维护规范：
+
+- **文档更新策略**：每次版本发布时同步更新相关文档
+- **版本同步**：功能变更必须同步更新API文档和用户指南
+- **文档归属**：
+  - README.md - 项目维护者
+  - API.md - 后端开发团队
+  - DEPLOYMENT.md - 运维团队
+  - SECURITY.md - 安全团队
+  - 其他文档 - 相应功能负责人
+- **贡献文档**：欢迎通过PR改进文档，要求清晰、准确、完整
+
+---
+
 **ca-pdf** - 🔐 自托管的PDF电子签章平台
 
 Made with ❤️ for secure document signing
+
+**项目地址**: https://github.com/QAQ-AWA/ca-pdf  
+**联系邮箱**: 7780102@qq.com  
+**最后更新**: 2025-01-15

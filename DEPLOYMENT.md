@@ -1,6 +1,16 @@
 # ca-pdf 部署指南
 
+> **📖 文档导航** | [README](README.md) | [安全指南](SECURITY.md) | [故障排除](TROUBLESHOOTING.md) | [开发文档](DEVELOPMENT.md)
+> 
+> **👥 适用人群**: 运维人员、系统管理员  
+> **⏱️ 阅读时间**: 约 20 分钟
+
+---
+
 本文档为 ca-pdf 项目的完整部署指南，包含本地开发环境、Docker Compose 部署、生产环境配置等内容。
+
+**项目地址**: https://github.com/QAQ-AWA/ca-pdf  
+**联系邮箱**: 7780102@qq.com
 
 ## 📋 部署概览
 
@@ -775,14 +785,25 @@ npm run build -- --analyze
 
 ---
 
-## 📞 支持和反馈
+## 🔗 相关文档
 
-- **GitHub Issues**：https://github.com/yourusername/ca-pdf/issues
-- **GitHub Discussions**：https://github.com/yourusername/ca-pdf/discussions
-- **邮件**：dev@ca-pdf.io
+- **[README](README.md)** - 项目介绍和快速开始
+- **[安全指南](SECURITY.md)** - 生产环境安全配置
+- **[故障排除](TROUBLESHOOTING.md)** - 部署问题排查
+- **[用户指南](USER_GUIDE.md)** - 功能使用说明
+- **[架构文档](ARCHITECTURE.md)** - 系统架构设计
+
+## ❓ 需要帮助？
+
+- 查看 **[故障排除文档](TROUBLESHOOTING.md)** 获取部署问题解决方案
+- 阅读 **[安全指南](SECURITY.md)** 了解生产环境安全配置
+- 在 **[GitHub Issues](https://github.com/QAQ-AWA/ca-pdf/issues)** 提问
 
 ---
 
-**版本**：1.0  
-**更新时间**：2024 年  
-**维护者**：ca-pdf 开发团队
+**ca-pdf 部署指南**
+
+**项目地址**: https://github.com/QAQ-AWA/ca-pdf  
+**联系邮箱**: 7780102@qq.com  
+**版本**: 1.0  
+**更新时间**: 2025年1月15日
