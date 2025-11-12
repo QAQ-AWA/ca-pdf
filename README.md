@@ -1,5 +1,7 @@
 # ca-pdf 中文 README
 
+**🌍 语言**: [中文](./README.md) | [English](./README.en.md)
+
 > 📖 **文档导航**：[文档索引](./DOCUMENTATION.md) · [用户指南](./USER_GUIDE.md) · [部署手册](./DEPLOYMENT.md) · [开发指南](./DEVELOPMENT.md) · [API 文档](./API.md)
 > 🎯 **适用人群**：所有角色
 > ⏱️ **预计阅读时间**：15 分钟
