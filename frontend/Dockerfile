@@ -3,28 +3,26 @@
 ARG NODE_VERSION=20.17.0
 ARG NGINX_VERSION=1.27.2-alpine
 
-FROM node:${NODE_VERSION}-alpine AS builder
-ENV NODE_ENV=production
+FROM node:${NODE_VERSION} AS builder
 WORKDIR /app
 
 COPY frontend/package.json frontend/package-lock.json ./
-RUN --mount=type=cache,target=/root/.npm \
-    --mount=type=secret,id=npm_token,required=false \
-    sh -c 'set -e; \
-        if [ -f /run/secrets/npm_token ]; then \
-          echo "//registry.npmjs.org/:_authToken=$(cat /run/secrets/npm_token)" > ~/.npmrc; \
-        fi; \
-        npm ci; \
-        rm -f ~/.npmrc'
+RUN npm ci
 
 ARG VITE_API_BASE_URL
 ARG VITE_APP_NAME
 ARG VITE_PUBLIC_BASE_URL
-ENV VITE_API_BASE_URL=${VITE_API_BASE_URL} \
+ENV NODE_ENV=production \
+    VITE_API_BASE_URL=${VITE_API_BASE_URL} \
     VITE_APP_NAME=${VITE_APP_NAME} \
     VITE_PUBLIC_BASE_URL=${VITE_PUBLIC_BASE_URL}
 
-COPY frontend/ ./
+COPY frontend/src ./src
+COPY frontend/public ./public
+COPY frontend/index.html ./
+COPY frontend/vite.config.ts ./
+COPY frontend/tsconfig.json ./
+COPY frontend/tsconfig.node.json ./
 RUN npm run build
 
 FROM nginx:${NGINX_VERSION} AS runtime

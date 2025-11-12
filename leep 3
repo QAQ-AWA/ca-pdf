@@ -1,0 +1,43 @@
+[1mdiff --git a/frontend/Dockerfile b/frontend/Dockerfile[m
+[1mindex 48a5b8f..96d9314 100644[m
+[1m--- a/frontend/Dockerfile[m
+[1m+++ b/frontend/Dockerfile[m
+[36m@@ -3,28 +3,26 @@[m
+ ARG NODE_VERSION=20.17.0[m
+ ARG NGINX_VERSION=1.27.2-alpine[m
+ [m
+[31m-FROM node:${NODE_VERSION}-alpine AS builder[m
+[31m-ENV NODE_ENV=production[m
+[32m+[m[32mFROM node:${NODE_VERSION} AS builder[m
+ WORKDIR /app[m
+ [m
+ COPY frontend/package.json frontend/package-lock.json ./[m
+[31m-RUN --mount=type=cache,target=/root/.npm \[m
+[31m-    --mount=type=secret,id=npm_token,required=false \[m
+[31m-    sh -c 'set -e; \[m
+[31m-        if [ -f /run/secrets/npm_token ]; then \[m
+[31m-          echo "//registry.npmjs.org/:_authToken=$(cat /run/secrets/npm_token)" > ~/.npmrc; \[m
+[31m-        fi; \[m
+[31m-        npm ci; \[m
+[31m-        rm -f ~/.npmrc'[m
+[32m+[m[32mRUN npm ci[m
+ [m
+ ARG VITE_API_BASE_URL[m
+ ARG VITE_APP_NAME[m
+ ARG VITE_PUBLIC_BASE_URL[m
+[31m-ENV VITE_API_BASE_URL=${VITE_API_BASE_URL} \[m
+[32m+[m[32mENV NODE_ENV=production \[m
+[32m+[m[32m    VITE_API_BASE_URL=${VITE_API_BASE_URL} \[m
+     VITE_APP_NAME=${VITE_APP_NAME} \[m
+     VITE_PUBLIC_BASE_URL=${VITE_PUBLIC_BASE_URL}[m
+ [m
+[31m-COPY frontend/ ./[m
+[32m+[m[32mCOPY frontend/src ./src[m
+[32m+[m[32mCOPY frontend/public ./public[m
+[32m+[m[32mCOPY frontend/index.html ./[m
+[32m+[m[32mCOPY frontend/vite.config.ts ./[m
+[32m+[m[32mCOPY frontend/tsconfig.json ./[m
+[32m+[m[32mCOPY frontend/tsconfig.node.json ./[m
+ RUN npm run build[m
+ [m
+ FROM nginx:${NGINX_VERSION} AS runtime[m
