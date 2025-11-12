@@ -207,6 +207,29 @@ make dev-frontend
 
 ## 🐳 Docker Compose 部署
 
+### 一键交互式部署脚本
+
+项目提供 `scripts/deploy.sh` 用于自动化完成 Docker Compose 部署。脚本可在干净的云主机或本地环境执行，流程如下：
+
+1. **环境预检查**：检测操作系统类型、Docker/Compose 版本、80/443 端口占用以及内存、磁盘空间是否满足最低要求。
+2. **交互式配置**：引导选择生产域名或本地模式，录入管理员邮箱、数据库数据目录，自动生成数据库密码、JWT/存储主密钥等敏感变量（使用 `openssl rand -hex 32`）。
+3. **配置渲染**：按输入结果生成 `.env`、`.env.docker`、`docker-compose.yml` 与 `config/traefik/dynamic.yml`，生产模式默认接入 Let's Encrypt， 本地模式自动生成自签证书。
+4. **自动部署**：执行 `docker compose up -d --build` 并等待健康检查通过后，调用 `docker compose exec backend alembic upgrade head` 完成数据库迁移。
+5. **结果回显**：输出前端地址、后端健康检查、API 文档及默认管理员账号密码；所有输出写入 `logs/deploy-YYYYMMDD.log` 便于审计。
+6. **失败回滚**：如任一步骤出错，脚本会自动调用 `docker compose down --remove-orphans` 回滚至执行前状态。
+
+常用命令：
+
+```bash
+# 交互式部署（在仓库根目录执行）
+bash scripts/deploy.sh
+
+# 清理部署产生的容器、网络与卷
+bash scripts/deploy.sh down
+```
+
+脚本具备幂等性，再次执行会提示是否覆盖已有的 `.env`、`.env.docker` 及 `docker-compose.yml`，适合后续重新部署或更新配置。
+
 ### 环境准备
 
 1. **安装 Docker**（版本 23+）和 **Docker Compose**（V2）
