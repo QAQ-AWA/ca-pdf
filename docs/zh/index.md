@@ -1,6 +1,5 @@
 # ca-pdf 中文 README
 
-> 📚 **文档站点**：[📖 在线文档](https://qaq-awa.github.io/ca-pdf/) · [🌍 中英双语](https://qaq-awa.github.io/ca-pdf/) · 默认中文，右上角可切换 English
 > 📖 **文档导航**：[文档索引](./DOCUMENTATION.md) · [用户指南](./USER_GUIDE.md) · [部署手册](./DEPLOYMENT.md) · [开发指南](./DEVELOPMENT.md) · [API 文档](./API.md)
 > 🎯 **适用人群**：所有角色
 > ⏱️ **预计阅读时间**：15 分钟
