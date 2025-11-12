@@ -46,3 +46,6 @@ backend/.coverage
 # Editors
 .vscode/
 .idea/
+
+# MkDocs
+site/
