@@ -54,37 +54,77 @@ on_error() {
 
 trap 'on_error "$LINENO"' ERR
 
-if [[ ${EUID} -ne 0 ]]; then
-  if command -v sudo >/dev/null 2>&1; then
-    SUDO="sudo"
-  else
-    log_error "当前用户非 root，且系统未安装 sudo，请切换到 root 用户后重新执行。"
-    exit 1
-  fi
-else
-  SUDO=""
-fi
+show_help() {
+  cat <<EOF
+用法: bash install.sh [选项]
 
-INSTALL_USER=$(id -un)
-INSTALL_GROUP=$(id -gn)
-INSTALL_ROOT=${CAPDF_HOME:-/opt/ca-pdf}
-CAPDF_REMOTE_REPO=${CAPDF_REMOTE_REPO:-QAQ-AWA/ca-pdf}
-CAPDF_CHANNEL=${CAPDF_CHANNEL:-main}
-RAW_BASE_URL="https://raw.githubusercontent.com/${CAPDF_REMOTE_REPO}/${CAPDF_CHANNEL}"
-SCRIPTS_DIR="${INSTALL_ROOT}/scripts"
-LOG_DIR="${INSTALL_ROOT}/logs"
-BACKUP_DIR="${INSTALL_ROOT}/backups"
-LOG_FILE="${LOG_DIR}/installer-$(date +%Y%m%d).log"
-LAUNCHER_PATH="/usr/local/bin/capdf"
-LEGACY_LAUNCHER_PATH="/usr/local/bin/ca-pdf"
-PKG_MANAGER=""
-UPDATED_INDEX=0
+ca-pdf 一键安装脚本
+
+选项:
+  -h, --help              显示此帮助信息
+  -v, --version          显示版本信息
+  --skip-install          跳过初始安装向导
+  --home DIR              自定义安装路径（默认: /opt/ca-pdf）
+  --channel CHANNEL       指定 Git 分支（默认: main）
+  --repo OWNER/REPO       指定 Git 仓库（默认: QAQ-AWA/ca-pdf）
+
+环境变量:
+  CAPDF_HOME              自定义安装路径
+  CAPDF_CHANNEL          Git 分支名称
+  CAPDF_REMOTE_REPO      Git 仓库（格式: OWNER/REPO）
+  CAPDF_SKIP_INSTALL     设为 1 跳过初始安装向导
+
+示例:
+  # 基础安装
+  bash <(curl -fsSL https://raw.githubusercontent.com/QAQ-AWA/ca-pdf/main/scripts/install.sh)
+
+  # 自定义安装路径
+  CAPDF_HOME=/srv/ca-pdf bash <(curl -fsSL https://...)
+
+  # 从开发分支安装
+  CAPDF_CHANNEL=dev bash <(curl -fsSL https://...)
+
+帮助与反馈:
+  GitHub: https://github.com/QAQ-AWA/ca-pdf
+  邮箱: 7780102@qq.com
+
+EOF
+}
+
+if [[ ${EUID} -ne 0 ]]; then
+   if command -v sudo >/dev/null 2>&1; then
+     SUDO="sudo"
+   else
+     log_error "当前用户非 root，且系统未安装 sudo，请切换到 root 用户后重新执行。"
+     exit 1
+   fi
+ else
+   SUDO=""
+ fi
+
+ INSTALL_USER=$(id -un)
+ INSTALL_GROUP=$(id -gn)
+
+ INSTALL_ROOT=${CAPDF_HOME:-/opt/ca-pdf}
+ CAPDF_REMOTE_REPO=${CAPDF_REMOTE_REPO:-QAQ-AWA/ca-pdf}
+ CAPDF_CHANNEL=${CAPDF_CHANNEL:-main}
+ CAPDF_SKIP_INSTALL=${CAPDF_SKIP_INSTALL:-0}
+
+ LAUNCHER_PATH="/usr/local/bin/capdf"
+ LEGACY_LAUNCHER_PATH="/usr/local/bin/ca-pdf"
+ PKG_MANAGER=""
+ UPDATED_INDEX=0
 
 ensure_directories() {
-  ${SUDO} mkdir -p "${SCRIPTS_DIR}" "${LOG_DIR}" "${BACKUP_DIR}"
-  ${SUDO} touch "${LOG_FILE}"
-  ${SUDO} chown "${INSTALL_USER}:${INSTALL_GROUP}" "${INSTALL_ROOT}" "${SCRIPTS_DIR}" "${LOG_DIR}" "${BACKUP_DIR}" "${LOG_FILE}" >/dev/null 2>&1 || true
-}
+   ${SUDO} mkdir -p "${SCRIPTS_DIR}" "${LOG_DIR}" "${BACKUP_DIR}"
+   ${SUDO} touch "${LOG_FILE}" || {
+     log_error "无法创建日志文件 ${LOG_FILE}"
+     return 1
+   }
+   ${SUDO} chmod 755 "${INSTALL_ROOT}" "${SCRIPTS_DIR}" "${LOG_DIR}" "${BACKUP_DIR}" 2>/dev/null || true
+   ${SUDO} chmod 644 "${LOG_FILE}" 2>/dev/null || true
+   ${SUDO} chown "${INSTALL_USER}:${INSTALL_GROUP}" "${INSTALL_ROOT}" "${SCRIPTS_DIR}" "${LOG_DIR}" "${BACKUP_DIR}" "${LOG_FILE}" >/dev/null 2>&1 || true
+ }
 
 detect_package_manager() {
   if command -v apt-get >/dev/null 2>&1; then
@@ -133,216 +173,385 @@ update_package_index() {
 }
 
 install_packages() {
-  local packages=("$@")
-  case "${PKG_MANAGER}" in
-    apt)
-      ${SUDO} DEBIAN_FRONTEND=noninteractive apt-get install -y "${packages[@]}"
-      ;;
-    dnf)
-      ${SUDO} dnf install -y "${packages[@]}"
-      ;;
-    yum)
-      ${SUDO} yum install -y "${packages[@]}"
-      ;;
-    zypper)
-      ${SUDO} zypper install -y "${packages[@]}"
-      ;;
-    pacman)
-      ${SUDO} pacman -S --noconfirm --needed "${packages[@]}"
-      ;;
-  esac
-}
+   local packages=("$@")
+   case "${PKG_MANAGER}" in
+     apt)
+       DEBIAN_FRONTEND=noninteractive ${SUDO} apt-get install -y "${packages[@]}"
+       ;;
+     dnf)
+       ${SUDO} dnf install -y "${packages[@]}"
+       ;;
+     yum)
+       ${SUDO} yum install -y "${packages[@]}"
+       ;;
+     zypper)
+       ${SUDO} zypper install -y "${packages[@]}"
+       ;;
+     pacman)
+       ${SUDO} pacman -S --noconfirm --needed "${packages[@]}"
+       ;;
+   esac
+ }
 
 ensure_command() {
-  local cmd="$1"
-  local package_name=${2:-$1}
-  if command -v "${cmd}" >/dev/null 2>&1; then
-    return
-  fi
-  log_step "安装依赖 ${package_name}"
-  update_package_index
-  install_packages "${package_name}"
-}
+   local cmd="$1"
+   local package_name=${2:-$1}
+   if command -v "${cmd}" >/dev/null 2>&1; then
+     return 0
+   fi
+   log_step "安装依赖 ${package_name}"
+   update_package_index
+   install_packages "${package_name}" || {
+     log_error "无法安装 ${package_name}，请检查网络连接或包名是否正确。"
+     return 1
+   }
+   if ! command -v "${cmd}" >/dev/null 2>&1; then
+     log_error "安装完成但命令 ${cmd} 仍不可用。"
+     return 1
+   fi
+   return 0
+ }
 
 install_docker() {
-  if command -v docker >/dev/null 2>&1; then
-    return
-  fi
-  log_step "安装 Docker"
-  if command -v curl >/dev/null 2>&1; then
-    curl -fsSL https://get.docker.com | ${SUDO} sh
-  else
-    update_package_index
-    case "${PKG_MANAGER}" in
-      apt)
-        install_packages docker.io
-        ;;
-      dnf|yum)
-        install_packages docker
-        ;;
-      zypper)
-        install_packages docker
-        ;;
-      pacman)
-        install_packages docker
-        ;;
-    esac
-  fi
-  if ! command -v docker >/dev/null 2>&1; then
-    log_error "Docker 安装失败，请检查网络或手动按照 https://docs.docker.com/engine/install/ 安装。"
-    exit 1
-  fi
-}
+   if command -v docker >/dev/null 2>&1; then
+     return 0
+   fi
+   log_step "安装 Docker"
+   if command -v curl >/dev/null 2>&1; then
+     curl -fsSL https://get.docker.com | ${SUDO} sh || {
+       log_warn "Docker 脚本安装失败，尝试使用包管理器安装"
+     }
+   fi
+
+   if ! command -v docker >/dev/null 2>&1; then
+     log_step "使用包管理器安装 Docker"
+     update_package_index
+     case "${PKG_MANAGER}" in
+       apt)
+         install_packages docker.io || log_warn "docker.io 包安装失败"
+         ;;
+       dnf|yum)
+         install_packages docker || log_warn "docker 包安装失败"
+         ;;
+       zypper)
+         install_packages docker || log_warn "docker 包安装失败"
+         ;;
+       pacman)
+         install_packages docker || log_warn "docker 包安装失败"
+         ;;
+     esac
+   fi
+
+   if ! command -v docker >/dev/null 2>&1; then
+     log_error "Docker 安装失败，请检查网络或手动按照 https://docs.docker.com/engine/install/ 安装。"
+     return 1
+   fi
+   return 0
+ }
 
 ensure_docker_service() {
-  if ! command -v systemctl >/dev/null 2>&1; then
-    log_warn "当前环境未检测到 systemd，需确保 Docker 服务已手动启动。"
-    return
-  fi
-  if ! systemctl is-active docker >/dev/null 2>&1; then
-    log_info "启动 Docker 服务"
-    ${SUDO} systemctl enable docker >/dev/null 2>&1 || true
-    ${SUDO} systemctl start docker
-  fi
-}
+   if ! command -v systemctl >/dev/null 2>&1; then
+     log_warn "当前环境未检测到 systemd，需确保 Docker 服务已手动启动。"
+     return 0
+   fi
+   if ! systemctl is-active docker >/dev/null 2>&1; then
+     log_step "启动 Docker 服务"
+     ${SUDO} systemctl enable docker >/dev/null 2>&1 || {
+       log_warn "无法启用 Docker 自启动"
+     }
+     ${SUDO} systemctl start docker || {
+       log_error "无法启动 Docker 服务"
+       return 1
+     }
+   fi
+   log_success "Docker 服务运行中"
+   return 0
+ }
 
 ensure_compose_plugin() {
-  if docker compose version >/dev/null 2>&1; then
-    return
-  fi
-  if command -v docker-compose >/dev/null 2>&1; then
-    log_warn "检测到 docker-compose V1，推荐升级到 Docker Compose V2。"
-    return
-  fi
-  log_step "安装 Docker Compose 插件"
-  case "${PKG_MANAGER}" in
-    apt)
-      update_package_index
-      install_packages docker-compose-plugin
-      ;;
-    dnf|yum)
-      update_package_index
-      install_packages docker-compose-plugin
-      ;;
-    zypper)
-      update_package_index
-      install_packages docker-compose
-      ;;
-    pacman)
-      update_package_index
-      install_packages docker-compose
-      ;;
-    *)
-      log_warn "请手动安装 Docker Compose V2。"
-      ;;
-  esac
+   if docker compose version >/dev/null 2>&1; then
+     log_info "Docker Compose V2 已安装"
+     return 0
+   fi
+   if command -v docker-compose >/dev/null 2>&1; then
+     log_warn "检测到 Docker Compose V1，推荐升级到 Docker Compose V2。"
+     return 0
+   fi
+   log_step "安装 Docker Compose 插件"
+   case "${PKG_MANAGER}" in
+     apt)
+       update_package_index
+       install_packages docker-compose-plugin || log_warn "docker-compose-plugin 包安装失败"
+       ;;
+     dnf|yum)
+       update_package_index
+       install_packages docker-compose-plugin || log_warn "docker-compose-plugin 包安装失败"
+       ;;
+     zypper)
+       update_package_index
+       install_packages docker-compose || log_warn "docker-compose 包安装失败"
+       ;;
+     pacman)
+       update_package_index
+       install_packages docker-compose || log_warn "docker-compose 包安装失败"
+       ;;
+     *)
+       log_warn "未知包管理器，请手动安装 Docker Compose V2。"
+       ;;
+   esac
 
-  if ! docker compose version >/dev/null 2>&1; then
-    log_warn "未能自动安装 Docker Compose V2，可访问 https://docs.docker.com/compose/install/ 手动安装。"
-  fi
-}
+   if ! docker compose version >/dev/null 2>&1 && ! command -v docker-compose >/dev/null 2>&1; then
+     log_warn "未能自动安装 Docker Compose，可访问 https://docs.docker.com/compose/install/ 手动安装。"
+     return 1
+   fi
+   return 0
+ }
 
 check_network() {
-  if ! curl -fsSL --retry 3 --retry-delay 1 --retry-connrefused "${RAW_BASE_URL}/scripts/deploy.sh" >/dev/null 2>&1; then
-    log_warn "无法从 ${RAW_BASE_URL} 获取安装资源。"
-    log_warn "如果当前处于离线或代理环境，请配置好代理或手动下载脚本后重试。"
-    exit 1
-  fi
-}
+   log_step "检查网络连接"
+   if ! curl -fsSL --retry 3 --retry-delay 1 --retry-connrefused "${RAW_BASE_URL}/scripts/deploy.sh" >/dev/null 2>&1; then
+     log_error "无法从 ${RAW_BASE_URL} 获取安装资源。"
+     log_info "故障排查："
+     log_info "  1. 检查网络连接"
+     log_info "  2. 检查代理配置（如适用）"
+     log_info "  3. 检查 DNS 解析"
+     log_info "  4. GitHub 访问是否正常"
+     exit 1
+   fi
+   log_success "网络连接正常"
+   return 0
+ }
 
-download_asset() {
-  local remote_path="$1"
-  local target_path="$2"
-  local target_dir
-  target_dir=$(dirname "${target_path}")
-  mkdir -p "${target_dir}"
-  curl -fsSL --retry 3 --retry-delay 1 --retry-connrefused "${RAW_BASE_URL}/${remote_path}" -o "${target_path}.tmp"
-  mv "${target_path}.tmp" "${target_path}"
-}
+ download_asset() {
+   local remote_path="$1"
+   local target_path="$2"
+   local target_dir
+   target_dir=$(dirname "${target_path}")
+   mkdir -p "${target_dir}" || {
+     log_error "无法创建目录 ${target_dir}"
+     return 1
+   }
+   log_info "下载 ${remote_path}"
+   curl -fsSL --retry 3 --retry-delay 1 --retry-connrefused "${RAW_BASE_URL}/${remote_path}" -o "${target_path}.tmp" || {
+     log_error "无法下载 ${remote_path}"
+     rm -f "${target_path}.tmp"
+     return 1
+   }
+   mv "${target_path}.tmp" "${target_path}" || {
+     log_error "无法保存文件到 ${target_path}"
+     rm -f "${target_path}.tmp"
+     return 1
+   }
+   return 0
+ }
 
 install_capdf_files() {
-  log_step "下载管理脚本"
-  download_asset "scripts/deploy.sh" "${SCRIPTS_DIR}/deploy.sh"
-  chmod +x "${SCRIPTS_DIR}/deploy.sh"
+   log_step "下载管理脚本"
+   download_asset "scripts/deploy.sh" "${SCRIPTS_DIR}/deploy.sh" || {
+     log_error "deploy.sh 下载失败，安装无法继续"
+     return 1
+   }
+   chmod +x "${SCRIPTS_DIR}/deploy.sh" || log_warn "无法设置 deploy.sh 为可执行"
 
-  download_asset "scripts/install.sh" "${SCRIPTS_DIR}/install.sh"
-  chmod +x "${SCRIPTS_DIR}/install.sh"
+   download_asset "scripts/install.sh" "${SCRIPTS_DIR}/install.sh" || {
+     log_warn "install.sh 下载失败，跳过"
+   }
+   if [[ -f "${SCRIPTS_DIR}/install.sh" ]]; then
+     chmod +x "${SCRIPTS_DIR}/install.sh" || log_warn "无法设置 install.sh 为可执行"
+   fi
 
-  log_step "同步模版文件"
-  download_asset ".env.example" "${INSTALL_ROOT}/.env.example"
-  download_asset ".env.docker.example" "${INSTALL_ROOT}/.env.docker.example"
-  download_asset "docker-compose.yml" "${INSTALL_ROOT}/docker-compose.example.yml"
-  log_success "模板文件已更新"
-}
+   log_step "同步模版文件"
+   download_asset ".env.example" "${INSTALL_ROOT}/.env.example" || {
+     log_warn ".env.example 下载失败"
+   }
+   download_asset ".env.docker.example" "${INSTALL_ROOT}/.env.docker.example" || {
+     log_warn ".env.docker.example 下载失败"
+   }
+   download_asset "docker-compose.yml" "${INSTALL_ROOT}/docker-compose.example.yml" || {
+     log_warn "docker-compose.yml 下载失败"
+   }
+   log_success "脚本文件已安装"
+   return 0
+ }
 
 create_launcher() {
-  log_step "创建 capdf 命令"
-  local launcher_tmp
-  launcher_tmp=$(mktemp)
-  cat >"${launcher_tmp}" <<EOF
+   log_step "创建 capdf 命令"
+   local launcher_tmp
+   launcher_tmp=$(mktemp) || {
+     log_error "无法创建临时文件"
+     return 1
+   }
+   cat >"${launcher_tmp}" << 'EOF'
 #!/usr/bin/env bash
 set -Eeuo pipefail
-export CAPDF_HOME="${INSTALL_ROOT}"
-export CAPDF_CHANNEL="${CAPDF_CHANNEL}"
-export CAPDF_REMOTE_REPO="${CAPDF_REMOTE_REPO}"
-exec "${SCRIPTS_DIR}/deploy.sh" "\$@"
+export CAPDF_HOME="CAPDF_HOME_VAL"
+export CAPDF_CHANNEL="CAPDF_CHANNEL_VAL"
+export CAPDF_REMOTE_REPO="CAPDF_REMOTE_REPO_VAL"
+exec "SCRIPTS_DIR_VAL/deploy.sh" "$@"
 EOF
-  ${SUDO} mv "${launcher_tmp}" "${LAUNCHER_PATH}"
-  ${SUDO} chmod +x "${LAUNCHER_PATH}"
-  if [[ -e "${LEGACY_LAUNCHER_PATH}" && ! -L "${LEGACY_LAUNCHER_PATH}" ]]; then
-    ${SUDO} rm -f "${LEGACY_LAUNCHER_PATH}"
-  fi
-  if [[ ! -L "${LEGACY_LAUNCHER_PATH}" ]]; then
-    ${SUDO} ln -sf "${LAUNCHER_PATH}" "${LEGACY_LAUNCHER_PATH}"
-  fi
-}
+   sed -i "s|CAPDF_HOME_VAL|${INSTALL_ROOT}|g" "${launcher_tmp}"
+   sed -i "s|CAPDF_CHANNEL_VAL|${CAPDF_CHANNEL}|g" "${launcher_tmp}"
+   sed -i "s|CAPDF_REMOTE_REPO_VAL|${CAPDF_REMOTE_REPO}|g" "${launcher_tmp}"
+   sed -i "s|SCRIPTS_DIR_VAL|${SCRIPTS_DIR}|g" "${launcher_tmp}"
+   
+   ${SUDO} mv "${launcher_tmp}" "${LAUNCHER_PATH}" || {
+     log_error "无法创建启动脚本"
+     rm -f "${launcher_tmp}"
+     return 1
+   }
+   ${SUDO} chmod +x "${LAUNCHER_PATH}" || {
+     log_error "无法设置启动脚本为可执行"
+     return 1
+   }
+   if [[ -e "${LEGACY_LAUNCHER_PATH}" && ! -L "${LEGACY_LAUNCHER_PATH}" ]]; then
+     ${SUDO} rm -f "${LEGACY_LAUNCHER_PATH}" || log_warn "无法删除旧启动脚本"
+   fi
+   if [[ ! -L "${LEGACY_LAUNCHER_PATH}" ]]; then
+     ${SUDO} ln -sf "${LAUNCHER_PATH}" "${LEGACY_LAUNCHER_PATH}" || {
+       log_warn "无法创建兼容性符号链接"
+     }
+   fi
+   log_success "启动脚本已创建"
+   return 0
+ }
 
-ensure_user_in_docker_group() {
-  if id -nG "${INSTALL_USER}" | grep -qw docker; then
-    return
-  fi
-  log_warn "当前用户 ${INSTALL_USER} 未加入 docker 用户组，后续可能需要 sudo 才能管理容器。"
-  log_warn "可执行以下命令后重新登录生效："
-  printf "  %s sudo usermod -aG docker %s%s\n" "${BOLD}" "${INSTALL_USER}" "${RESET}"
-  log_warn "执行完命令后，请重新登录或重新加载 shell。"
-}
+ ensure_user_in_docker_group() {
+   if id -nG "${INSTALL_USER}" | grep -qw docker; then
+     log_success "当前用户已在 docker 用户组中"
+     return 0
+   fi
+   log_warn "当前用户 ${INSTALL_USER} 未加入 docker 用户组，后续可能需要 sudo 才能管理容器。"
+   log_info "推荐操作："
+   if [[ ${EUID} -ne 0 ]]; then
+     printf "  %s sudo usermod -aG docker %s%s\n" "${BOLD}" "${INSTALL_USER}" "${RESET}"
+   else
+     printf "  %s usermod -aG docker %s%s\n" "${BOLD}" "${INSTALL_USER}" "${RESET}"
+   fi
+   log_info "执行完命令后，请重新登录或运行："
+   printf "  %s newgrp docker%s\n" "${BOLD}" "${RESET}"
+   return 0
+ }
 
 run_initial_install() {
-  if [[ "${CAPDF_SKIP_INSTALL:-0}" == "1" ]]; then
-    log_info "已跳过自动部署，可稍后运行 capdf install。"
-    return
-  fi
-  log_step "启动 ca-pdf 安装向导"
-  "${SCRIPTS_DIR}/deploy.sh" install
+   if [[ "${CAPDF_SKIP_INSTALL:-0}" == "1" ]]; then
+     log_info "已跳过自动部署，可稍后运行 capdf install。"
+     return 0
+   fi
+   log_step "启动 ca-pdf 安装向导"
+   if [[ ! -f "${SCRIPTS_DIR}/deploy.sh" ]]; then
+     log_error "deploy.sh 不存在，无法启动安装向导"
+     return 1
+   fi
+   "${SCRIPTS_DIR}/deploy.sh" install || {
+     log_error "安装向导执行失败"
+     return 1
+   }
+   return 0
+ }
+
+parse_args() {
+   while [[ $# -gt 0 ]]; do
+     case "$1" in
+       -h|--help)
+         show_help
+         exit 0
+         ;;
+       -v|--version)
+         log_info "ca-pdf 安装脚本 v1.0"
+         exit 0
+         ;;
+       --skip-install)
+         CAPDF_SKIP_INSTALL=1
+         shift
+         ;;
+       --home)
+         INSTALL_ROOT="$2"
+         shift 2
+         ;;
+       --channel)
+         CAPDF_CHANNEL="$2"
+         shift 2
+         ;;
+       --repo)
+         CAPDF_REMOTE_REPO="$2"
+         shift 2
+         ;;
+       *)
+         log_error "未知选项: $1"
+         log_info "使用 -h 或 --help 查看帮助"
+         exit 1
+         ;;
+     esac
+   done
+}
+
+initialize_paths() {
+   RAW_BASE_URL="https://raw.githubusercontent.com/${CAPDF_REMOTE_REPO}/${CAPDF_CHANNEL}"
+   SCRIPTS_DIR="${INSTALL_ROOT}/scripts"
+   LOG_DIR="${INSTALL_ROOT}/logs"
+   BACKUP_DIR="${INSTALL_ROOT}/backups"
+   LOG_FILE="${LOG_DIR}/installer-$(date +%Y%m%d).log"
 }
 
 main() {
-  ensure_directories
-  exec > >(tee -a "${LOG_FILE}") 2>&1
+    parse_args "$@"
+    initialize_paths
 
-  log_step "初始化安装器"
-  detect_package_manager
-  ensure_command curl
-  check_network
-  ensure_command git
-  ensure_command jq
-  ensure_command openssl
-  ensure_command tar
-  ensure_command gzip
+    ensure_directories || {
+      log_error "无法初始化安装目录"
+      exit 1
+    }
 
-  install_docker
-  ensure_docker_service
-  ensure_compose_plugin
-  ensure_user_in_docker_group
+    if [[ -w "${LOG_FILE}" ]]; then
+      exec > >(tee -a "${LOG_FILE}") 2>&1
+      log_info "日志输出到 ${LOG_FILE}"
+    else
+      log_warn "无法写入日志文件 ${LOG_FILE}，日志输出到标准输出"
+    fi
 
-  install_capdf_files
-  create_launcher
+    log_step "========== ca-pdf 一键安装脚本 =========="
+    log_info "安装路径: ${INSTALL_ROOT}"
+    log_info "分支: ${CAPDF_CHANNEL}"
+    log_info "仓库: ${CAPDF_REMOTE_REPO}"
+    log_step "=========================================="
 
-  log_success "管理脚本已安装至 ${INSTALL_ROOT}"
-  log_info "现在可以通过命令 ${BOLD}capdf${RESET} 进入菜单化运维界面。"
+    log_step "初始化安装器"
+    detect_package_manager || exit 1
 
-  run_initial_install
-  log_success "安装流程结束，如需再次操作请运行 capdf。"
+    ensure_command curl || exit 1
+    check_network || exit 1
+    ensure_command git || exit 1
+    ensure_command jq || exit 1
+    ensure_command openssl || exit 1
+    ensure_command tar || exit 1
+    ensure_command gzip || exit 1
+
+    install_docker || exit 1
+    ensure_docker_service || exit 1
+    ensure_compose_plugin || {
+      log_warn "Docker Compose 可能安装失败，但安装继续"
+    }
+    ensure_user_in_docker_group
+
+    install_capdf_files || exit 1
+    create_launcher || exit 1
+
+    log_success "========== 安装完成 =========="
+    log_success "管理脚本已安装至 ${INSTALL_ROOT}"
+    log_info "启动脚本路径: ${LAUNCHER_PATH}"
+    log_info ""
+    log_info "现在可以通过以下命令进入菜单化运维界面："
+    printf "  %s capdf%s\n" "${BOLD}" "${RESET}"
+    log_info ""
+
+    run_initial_install || {
+      log_warn "初始安装步骤未完成，稍后可运行 capdf install 继续"
+    }
+
+    log_success "====== 安装流程结束 ======"
+    log_info "使用帮助: capdf --help"
+    log_info "GitHub: https://github.com/QAQ-AWA/ca-pdf"
+    log_info "反馈邮箱: 7780102@qq.com"
 }
 
 main "$@"
