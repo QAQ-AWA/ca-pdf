@@ -82,27 +82,41 @@ ca-pdf 让您能够快速搭建一套独立的 PDF 数字签章系统，完全�
 - **PostgreSQL** 12+ （生产推荐，本地开发可用SQLite）
 - 一个可解析到宿主机的**域名**（开发用 `*.localtest.me` 或 `localhost`）
 
-### 一键交互式部署（推荐）
+### 一行命令安装（推荐）
 
-快速体验或生产部署可以使用交互式脚本，一次性完成环境检查、配置生成、容器启动与迁移执行：
+在全新主机上执行以下命令即可完成依赖检查、脚本下载以及初始化部署：
 
 ```bash
-# 交互式部署，将自动生成 .env/.env.docker/docker-compose.yml 等文件
-bash scripts/deploy.sh
-
-# 部署完成后可运行 down 子命令清理资源
-bash scripts/deploy.sh down
+bash <(curl -fsSL https://raw.githubusercontent.com/QAQ-AWA/ca-pdf/main/scripts/install.sh)
 ```
 
-脚本会执行以下步骤：
+安装器将自动：
 
-1. 检查操作系统、Docker/Compose 版本、80/443 端口占用、内存与磁盘空间。
-2. 引导输入域名、本地/生产模式、管理员邮箱与数据库存储路径，并自动生成强密码、JWT/存储密钥。
-3. 渲染 `.env`、`.env.docker`、`docker-compose.yml` 以及 Traefik 动态配置，自签或申请证书。
-4. 执行 `docker compose up -d`，等待健康检查并自动运行 Alembic 迁移。
-5. 成功后打印前端、后端健康检查、API 文档地址以及管理员账号密码，日志输出至 `logs/deploy-YYYYMMDD.log`。
+1. 检查 Bash、Docker、Docker Compose、80/443 端口、内存与磁盘空间等运行条件。
+2. 针对不同发行版自动安装 curl、git、jq、openssl、docker、docker compose 等依赖。
+3. 下载部署模板（docker-compose.yml、Traefik 配置、环境变量示例），并生成 `.env` / `.env.docker`。
+4. 生成管理员账号、数据库密码、JWT 密钥与 Fernet 主密钥，支持 localtest.me 自签或 Let's Encrypt 证书。
+5. 启动完整容器栈、自动执行数据库迁移，所有产生日志记录在 `logs/installer-YYYYMMDD.log`。
 
-若需完全自定义部署，可参考下方的手动步骤或查看《DEPLOYMENT.md》。
+安装完成后会在 `/usr/local/bin` 注册 `capdf` 命令，可随时运行交互式菜单：
+
+```bash
+capdf menu
+```
+
+常用子命令示例：
+
+```bash
+capdf install     # 重新进入安装向导
+capdf up          # 构建并启动（或升级）服务
+capdf down        # 停止服务（添加 --clean 可清理数据卷）
+capdf logs -f     # 实时查看所有服务日志
+capdf backup      # 生成数据库与配置备份
+capdf restore     # 从已有备份恢复
+capdf self-update # 拉取最新安装脚本
+```
+
+如需离线部署或自定义镜像与配置，请参考下方手动步骤以及《DEPLOYMENT.md》。
 
 ### 本地开发安装
 
@@ -140,15 +154,17 @@ openssl rand -base64 32  # 用于 ENCRYPTED_STORAGE_MASTER_KEY
 #### 3. 本地运行（Docker Compose）
 
 ```bash
-# 一键启动全栈（包含PostgreSQL、后端、前端、Traefik）
-./deploy.sh up
+# 一键启动全栈（包含 PostgreSQL、后端、前端、Traefik）
+capdf up
 
 # 查看服务状态
-./deploy.sh ps
+capdf status
 
 # 查看日志
-./deploy.sh logs -f backend
+capdf logs -f backend
 ```
+
+> 💡 若尚未执行安装器，也可以在仓库目录中运行 `scripts/deploy.sh <command>` 获得相同效果。
 
 或者本地开发模式（需要手动启动PostgreSQL）：
 
@@ -316,7 +332,7 @@ ca-pdf/
 │
 ├── docker-compose.yml              # 完整栈编排配置
 ├── Makefile                        # 开发命令快捷方式
-├── deploy.sh                       # 一键部署脚本
+├── deploy.sh                       # 兼容 capdf 子命令的部署脚本
 ├── .env.example                    # 环境变量示例
 ├── .env.docker.example             # Docker环境变量示例
 └── README.md                       # 本文件
@@ -329,11 +345,11 @@ ca-pdf/
 
 ### 本地开发（Docker Compose）
 
-最快速的启动方式，一个命令即可启动完整的开发栈：
+最快速的启动方式是使用全局 `capdf` 命令（由一键安装器自动配置），一个命令即可启动完整的开发栈：
 
 ```bash
 # 一键启动
-./deploy.sh up
+capdf up
 
 # 初次启动会自动：
 # 1. 构建前后端镜像
@@ -345,14 +361,16 @@ ca-pdf/
 # 7. 创建默认管理员账号
 
 # 停止服务
-./deploy.sh down
+capdf down
 
 # 重新启动
-./deploy.sh restart
+capdf restart
 
 # 完全清理（包括数据卷）
-./deploy.sh destroy
+capdf down --clean
 ```
+
+> 若在源码仓库内未安装全局命令，可继续使用 `scripts/deploy.sh <command>` 或根目录的 `./deploy.sh <command>` 进行同样的操作。
 
 ### 生产部署概览
 
@@ -484,23 +502,23 @@ make test-frontend    # 仅前端测试
 
 ```bash
 # 启动全栈
-./deploy.sh up
+capdf up
 
 # 查看状态
-./deploy.sh ps
+capdf status
 
 # 查看日志
-./deploy.sh logs backend
-./deploy.sh logs frontend
+capdf logs backend
+capdf logs frontend
 
 # 重启服务
-./deploy.sh restart
+capdf restart
 
 # 停止服务
-./deploy.sh down
+capdf down
 
-# 清理资源
-./deploy.sh destroy
+# 清理资源（包含数据卷）
+capdf down --clean
 ```
 
 ---

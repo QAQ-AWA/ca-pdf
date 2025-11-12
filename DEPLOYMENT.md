@@ -207,28 +207,44 @@ make dev-frontend
 
 ## 🐳 Docker Compose 部署
 
-### 一键交互式部署脚本
+### 一行安装 & 菜单化运维
 
-项目提供 `scripts/deploy.sh` 用于自动化完成 Docker Compose 部署。脚本可在干净的云主机或本地环境执行，流程如下：
-
-1. **环境预检查**：检测操作系统类型、Docker/Compose 版本、80/443 端口占用以及内存、磁盘空间是否满足最低要求。
-2. **交互式配置**：引导选择生产域名或本地模式，录入管理员邮箱、数据库数据目录，自动生成数据库密码、JWT/存储主密钥等敏感变量（使用 `openssl rand -hex 32`）。
-3. **配置渲染**：按输入结果生成 `.env`、`.env.docker`、`docker-compose.yml` 与 `config/traefik/dynamic.yml`，生产模式默认接入 Let's Encrypt， 本地模式自动生成自签证书。
-4. **自动部署**：执行 `docker compose up -d --build` 并等待健康检查通过后，调用 `docker compose exec backend alembic upgrade head` 完成数据库迁移。
-5. **结果回显**：输出前端地址、后端健康检查、API 文档及默认管理员账号密码；所有输出写入 `logs/deploy-YYYYMMDD.log` 便于审计。
-6. **失败回滚**：如任一步骤出错，脚本会自动调用 `docker compose down --remove-orphans` 回滚至执行前状态。
-
-常用命令：
+ca-pdf 提供 `scripts/install.sh` 安装器，可在全新主机上一条命令完成依赖准备与首次部署：
 
 ```bash
-# 交互式部署（在仓库根目录执行）
-bash scripts/deploy.sh
-
-# 清理部署产生的容器、网络与卷
-bash scripts/deploy.sh down
+bash <(curl -fsSL https://raw.githubusercontent.com/QAQ-AWA/ca-pdf/main/scripts/install.sh)
 ```
 
-脚本具备幂等性，再次执行会提示是否覆盖已有的 `.env`、`.env.docker` 及 `docker-compose.yml`，适合后续重新部署或更新配置。
+安装器能力概览：
+
+1. **自动检测环境**：校验 Bash 版本、Docker/Compose 是否可用，检测 80/443 端口、内存与磁盘空间是否满足要求。
+2. **自动安装依赖**：识别 Ubuntu/Debian、CentOS/Alma/Rocky、Fedora、openSUSE、Arch 等主流发行版，自动安装 curl、git、jq、openssl、docker、docker compose v2 等包，必要时尝试使用 `sudo`。
+3. **安全生成配置**：下载最新的 `.env.example`、`.env.docker.example`、`docker-compose.yml`、Traefik 配置模板，生成 `.env`/`.env.docker`，并使用 `openssl rand -hex 32` 创建强随机密钥。
+4. **支持多模式证书**：生产模式默认使用 Let's Encrypt，自动配置 ACME；本地模式则生成 `localtest.me` 自签证书。
+5. **幂等部署**：创建或更新 Docker Compose 栈，等待健康检查完成后自动执行 Alembic 迁移，日志记录在 `logs/installer-YYYYMMDD.log`。
+6. **菜单化管理**：安装完成后在 `/usr/local/bin` 注册 `capdf` 命令，可随时进入交互式菜单执行安装、升级、备份、恢复、自更新等操作。
+
+安装完成后可直接运行：
+
+```bash
+capdf menu
+```
+
+常用子命令如下：
+
+```bash
+capdf install      # 重新进入安装向导
+capdf up           # 构建并启动（或升级）所有服务
+capdf down         # 停止服务，保留数据卷
+capdf down --clean # 停止并删除容器与数据卷
+capdf logs -f      # 实时查看全部日志
+capdf backup       # 导出数据库 + 配置备份
+capdf restore      # 从备份恢复
+capdf doctor       # 健康检查（端口、资源、数据库连接等）
+capdf self-update  # 从远程仓库拉取最新脚本
+```
+
+> ℹ️ 离线或 CI 环境仍可在仓库根目录使用 `scripts/deploy.sh` / `./deploy.sh`，其子命令与 `capdf` 保持一致，但需手动满足依赖。
 
 ### 环境准备
 
@@ -255,25 +271,25 @@ cp .env.docker.example .env.docker
 
 ```bash
 # 一键启动全栈（包含所有服务）
-./deploy.sh up
+capdf up
 
 # 查看容器状态
-./deploy.sh ps
+capdf status
 
 # 查看实时日志
-./deploy.sh logs
+capdf logs -f
 
 # 查看特定服务日志
-./deploy.sh logs backend
-./deploy.sh logs frontend
-./deploy.sh logs db
+capdf logs backend
+capdf logs frontend
+capdf logs db
 ```
 
 ### 构建镜像
 
 ```bash
 # 首次启动时自动构建镜像
-./deploy.sh up
+capdf up
 
 # 重新构建镜像（不更新已启动的容器）
 docker compose build
@@ -286,10 +302,10 @@ docker compose up -d --build
 
 ```bash
 # 实时查看所有日志
-./deploy.sh logs -f
+capdf logs -f
 
 # 查看特定服务最后 100 行日志
-./deploy.sh logs backend --tail 100
+capdf logs backend --tail 100
 
 # 查看从特定时间开始的日志
 docker compose logs --since 10m backend
@@ -299,13 +315,13 @@ docker compose logs --since 10m backend
 
 ```bash
 # 停止所有容器（保留数据卷）
-./deploy.sh down
+capdf down
 
 # 停止并删除所有容器和数据卷（谨慎使用！）
-./deploy.sh destroy
+capdf down --clean
 
 # 重启应用（适合更新后）
-./deploy.sh restart
+capdf restart
 ```
 
 ### 数据备份
@@ -483,7 +499,7 @@ crontab -e
 
 ```bash
 # 停止应用
-./deploy.sh down
+capdf down
 
 # 恢复备份
 gunzip -c /var/backups/ca-pdf/app_db_*.sql.gz | \
@@ -493,7 +509,7 @@ gunzip -c /var/backups/ca-pdf/app_db_*.sql.gz | \
 psql -h localhost -U app_user -d app_db -c "SELECT COUNT(*) FROM users;"
 
 # 重启应用
-./deploy.sh up
+capdf up
 ```
 
 ---
@@ -590,7 +606,7 @@ VITE_PUBLIC_BASE_URL=https://cdn.company.com
 
 ```bash
 # 查看实时日志
-./deploy.sh logs -f backend
+capdf logs -f backend
 
 # 导出日志到文件
 docker compose logs backend > app.log 2>&1
@@ -666,7 +682,7 @@ TRAEFIK_HTTPS_PORT=8443
 docker compose ps db
 
 # 查看数据库日志
-./deploy.sh logs db
+capdf logs db
 
 # 验证 DATABASE_URL 格式
 DATABASE_URL=postgresql+asyncpg://app_user:password@db:5432/app_db
@@ -693,13 +709,13 @@ docker compose exec backend env | grep -E "SECRET_KEY|ENCRYPTED"
 
 ```bash
 # 查看所有服务日志
-./deploy.sh logs
+capdf logs
 
 # 实时监控后端日志
-./deploy.sh logs -f backend
+capdf logs -f backend
 
 # 查看最后 50 行日志
-./deploy.sh logs backend --tail 50
+capdf logs backend --tail 50
 
 # 保存日志到文件
 docker compose logs > app_$(date +%Y%m%d_%H%M%S).log 2>&1
@@ -709,7 +725,7 @@ docker compose logs > app_$(date +%Y%m%d_%H%M%S).log 2>&1
 
 ```bash
 # 查看容器状态
-./deploy.sh ps
+capdf status
 
 # 进入容器 Shell
 docker compose exec backend bash
@@ -750,13 +766,13 @@ docker compose up -d --build
 docker compose exec db pg_dump -U app_user app_db > backup.sql
 
 # 2. 停止服务
-./deploy.sh down
+capdf down
 
 # 3. 修改 docker-compose.yml 中的 PostgreSQL 版本
 # image: postgres:16  # 改为 postgres:17
 
 # 4. 启动并验证
-./deploy.sh up
+capdf up
 ```
 
 ### 备份验证
