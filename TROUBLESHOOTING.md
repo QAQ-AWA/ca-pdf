@@ -483,7 +483,23 @@ ca-pdf 故障排查总览
 
 ## 9. 部署相关问题
 
-### 9.1 Docker 容器无法启动
+### 9.1 一键安装器常见问题
+- **curl 无法下载脚本**（`Could not resolve host` / 超时）：
+  - **排查**：使用 `ping raw.githubusercontent.com` 或 `curl -I` 检查网络连通性，确认是否位于离线或受限网络。
+  - **解决**：配置 HTTP/HTTPS 代理（示例：`export https_proxy=http://proxy:7890`），或手动下载 `scripts/install.sh` 放置到本地执行。
+- **缺少 sudo / 权限不足**：
+  - **排查**：安装器提示 `sudo: command not found` 或 `Permission denied`。
+  - **解决**：使用 root 用户执行，或手动安装 `sudo` 后重新运行；确保当前用户在 `/usr/local/bin` 具有写入权限。
+- **Docker 安装失败或服务未启动**：
+  - **排查**：安装器输出 `docker: command not found` 或 `Cannot connect to the Docker daemon`。
+  - **解决**：参照 [Docker 官方文档](https://docs.docker.com/engine/install/) 手动安装，并执行 `sudo systemctl enable --now docker`；必要时将当前用户加入 `docker` 组：`sudo usermod -aG docker <user>` 并重新登录。
+- **capdf 命令不可用**：
+  - **排查**：执行 `capdf` 报错 `command not found`。
+  - **解决**：确认 `/usr/local/bin` 已包含在 `PATH`；重新运行安装器或手动创建软链接：`sudo ln -sf /opt/ca-pdf/scripts/deploy.sh /usr/local/bin/capdf`。
+- **安装日志查看**：
+  - 默认写入 `/opt/ca-pdf/logs/installer-YYYYMMDD.log`，可通过 `tail -f` 实时查看详细堆栈，便于定位失败原因。
+
+### 9.2 Docker 容器无法启动
 - **排查步骤**：
   1. `docker-compose ps` 查看容器状态，关注 `Exit` 代码。
   2. `docker-compose logs backend`、`docker-compose logs frontend` 查看错误信息。
@@ -494,7 +510,7 @@ ca-pdf 故障排查总览
   - 若镜像拉取失败，检查网络或私有仓库凭证。
   - 对于持续重启的容器，排查健康检查与依赖启动顺序。
 
-### 9.2 访问被拒绝（CORS 错误）
+### 9.3 访问被拒绝（CORS 错误）
 - **典型症状**：浏览器控制台提示 `No 'Access-Control-Allow-Origin' header`。
 - **排查步骤**：
   1. 确认 `BACKEND_CORS_ORIGINS` 为 JSON 列表格式：`["https://example.com", "http://localhost:3000"]`。
@@ -507,7 +523,7 @@ ca-pdf 故障排查总览
   ```
 - **解决方案**：更新配置并重启服务，若使用 Traefik/Nginx 反向代理，确保未覆盖响应头。
 
-### 9.3 反向代理配置错误
+### 9.4 反向代理配置错误
 - **常见问题**：WebSocket 未正确透传、HTTPS 回源、头部丢失。
 - **排查步骤**：
   1. 检查代理配置（Nginx、Traefik）是否转发 `Upgrade`、`Connection` 头。
@@ -515,7 +531,7 @@ ca-pdf 故障排查总览
   3. 使用 `curl -I`、`curl -H "X-Forwarded-Proto:https"` 测试。
 - **解决方案**：根据官方文档调整代理配置，必要时启用 `proxy_redirect`。
 
-### 9.4 HTTPS 证书过期
+### 9.5 HTTPS 证书过期
 - **排查步骤**：
   1. `openssl s_client -connect domain:443 -servername domain` 查看证书链与有效期。
   2. 检查自动续签任务（cron、certbot、acme.sh）是否执行成功。
@@ -523,7 +539,7 @@ ca-pdf 故障排查总览
   - 重新申请和部署证书，更新反向代理配置后重启。
   - 对即将过期的证书提前设置告警。
 
-### 9.5 Kubernetes 部署注意事项
+### 9.6 Kubernetes 部署注意事项
 - **健康检查**：配置 `livenessProbe`、`readinessProbe`，指向 `/api/v1/health`。
 - **配置管理**：通过 ConfigMap/Secret 管理 `.env` 与密钥，确保滚动更新过程中密钥一致。
 - **存储**：为证书与临时文件挂载持久卷，防止 Pod 重启导致数据丢失。

@@ -706,6 +706,7 @@ run_migrations() {
 }
 
 start_stack() {
+  detect_docker_compose
   pushd "${PROJECT_ROOT}" >/dev/null
   export COMPOSE_PROJECT_NAME=ca_pdf
   export COMPOSE_DOCKER_CLI_BUILD=1
