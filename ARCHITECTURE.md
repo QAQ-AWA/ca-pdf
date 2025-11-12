@@ -1,5 +1,15 @@
 # ca-pdf 架构设计文档
 
+> **📖 文档导航** | [README](README.md) | [开发文档](DEVELOPMENT.md) | [API文档](API.md) | [安全指南](SECURITY.md)
+> 
+> **👥 适用人群**: 架构师、开发者、技术决策者  
+> **⏱️ 阅读时间**: 约 25 分钟
+
+---
+
+**项目地址**: https://github.com/QAQ-AWA/ca-pdf  
+**联系邮箱**: 7780102@qq.com
+
 ## 1. 系统架构概览
 
 ### 1.1 总体架构图
@@ -361,4 +371,27 @@ DashboardShell 使用 CSS Grid 构建双列布局，窄屏下可以通过媒体�
 - **S3/OSS 扩展潜力**：EncryptedStorageService 的 `_store_binary` 可扩展为上传到 S3/OSS，再将元数据写入数据库；目前的 `storage_backend` 字段已为多后端支持预留占位。
 
 ---
+
+## 🔗 相关文档
+
+- **[README](README.md)** - 项目介绍和快速开始
+- **[开发文档](DEVELOPMENT.md)** - 本地开发环境设置
+- **[API文档](API.md)** - REST API参考
+- **[部署指南](DEPLOYMENT.md)** - 生产环境部署
+- **[安全指南](SECURITY.md)** - 安全设计和最佳实践
+
+## ❓ 需要帮助？
+
+- 查看 **[开发文档](DEVELOPMENT.md)** 了解系统实现细节
+- 阅读 **[API文档](API.md)** 了解接口设计
+- 在 **[GitHub Issues](https://github.com/QAQ-AWA/ca-pdf/issues)** 提问
+
+---
+
+**ca-pdf 架构设计文档**
+
 本架构设计文档概述了 ca-pdf 平台的系统组件、服务分层、核心流程与运维策略，旨在帮助开发与运维团队快速理解现有实现并指导后续演进。
+
+**项目地址**: https://github.com/QAQ-AWA/ca-pdf  
+**联系邮箱**: 7780102@qq.com  
+**最后更新**: 2025年1月15日

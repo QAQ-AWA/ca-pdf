@@ -1,6 +1,16 @@
 # 贡献指南 (CONTRIBUTING)
 
+> **📖 文档导航** | [README](README.md) | [开发文档](DEVELOPMENT.md) | [安全指南](SECURITY.md) | [变更日志](CHANGELOG.md)
+> 
+> **👥 适用人群**: 贡献者、开发者  
+> **⏱️ 阅读时间**: 约 15 分钟
+
+---
+
 感谢您对 ca-pdf 项目的关注！我们欢迎所有形式的贡献，包括代码、文档、测试和反馈。
+
+**项目地址**: https://github.com/QAQ-AWA/ca-pdf  
+**联系邮箱**: 7780102@qq.com
 
 ## 🎯 欢迎贡献者
 
@@ -815,4 +825,28 @@ function example() {}
 
 ---
 
+## 🔗 相关文档
+
+- **[README](README.md)** - 项目介绍和快速开始
+- **[开发文档](DEVELOPMENT.md)** - 开发环境设置和编码规范
+- **[安全指南](SECURITY.md)** - 安全开发实践
+- **[变更日志](CHANGELOG.md)** - 版本历史和更新
+- **[架构文档](ARCHITECTURE.md)** - 系统架构设计
+
+## ❓ 需要帮助？
+
+- 查看 **[开发文档](DEVELOPMENT.md)** 了解开发环境配置
+- 阅读 **[架构文档](ARCHITECTURE.md)** 了解系统设计
+- 在 **[GitHub Issues](https://github.com/QAQ-AWA/ca-pdf/issues)** 提问
+- 在 **[GitHub Discussions](https://github.com/QAQ-AWA/ca-pdf/discussions)** 参与讨论
+- 发送邮件到 **7780102@qq.com**
+
+---
+
+**ca-pdf 贡献指南**
+
 感谢您对 ca-pdf 项目的贡献！如有任何问题，欢迎通过 GitHub Issues 或 Discussions 联系我们。
+
+**项目地址**: https://github.com/QAQ-AWA/ca-pdf  
+**联系邮箱**: 7780102@qq.com  
+**最后更新**: 2025年1月15日

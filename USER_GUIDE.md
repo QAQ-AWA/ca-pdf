@@ -1,7 +1,17 @@
 # ca-pdf 中文用户手册
 
+> **📖 文档导航** | [README](README.md) | [API文档](API.md) | [故障排除](TROUBLESHOOTING.md) | [部署指南](DEPLOYMENT.md)
+> 
+> **👥 适用人群**: 最终用户、系统管理员  
+> **⏱️ 阅读时间**: 约 15 分钟
+
+---
+
 > 适用版本：v1.0  
 > 文档目标：指导系统管理员、普通业务用户和运维团队高效、安全地使用 ca-pdf 自托管电子签章平台。
+
+**项目地址**: https://github.com/QAQ-AWA/ca-pdf  
+**联系邮箱**: 7780102@qq.com
 
 ---
 
@@ -284,5 +294,27 @@
 - **批量操作提示**：利用签章队列、一键导出、批量导入用户等功能，可显著缩短重复工作时间。
 
 ---
+
+## 🔗 相关文档
+
+- **[README](README.md)** - 项目介绍和快速开始
+- **[API文档](API.md)** - REST API参考
+- **[故障排除](TROUBLESHOOTING.md)** - 常见问题解决
+- **[部署指南](DEPLOYMENT.md)** - 系统部署和配置
+
+## ❓ 需要帮助？
+
+- 查看 **[故障排除文档](TROUBLESHOOTING.md)** 获取常见问题解决方案
+- 阅读 **[API文档](API.md)** 了解API集成方法
+- 在 **[GitHub Issues](https://github.com/QAQ-AWA/ca-pdf/issues)** 提问
+- 发送邮件到 **7780102@qq.com**
+
+---
+
+**ca-pdf 用户手册**
+
+**项目地址**: https://github.com/QAQ-AWA/ca-pdf  
+**联系邮箱**: 7780102@qq.com  
+**最后更新**: 2025年1月15日
 
 > 如需进一步技术支持或希望扩展功能，请联系运维团队或在内部工单系统提交需求。祝您使用顺利，持续构建可信的电子签章流程。

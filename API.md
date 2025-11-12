@@ -1,6 +1,16 @@
 # ca-pdf API 文档
 
+> **📖 文档导航** | [README](README.md) | [用户指南](USER_GUIDE.md) | [开发文档](DEVELOPMENT.md) | [故障排除](TROUBLESHOOTING.md)
+> 
+> **👥 适用人群**: 开发者、API集成人员  
+> **⏱️ 阅读时间**: 约 20 分钟
+
+---
+
 自托管的 PDF 电子签章平台完整 API 参考指南。
+
+**项目地址**: https://github.com/QAQ-AWA/ca-pdf  
+**联系邮箱**: 7780102@qq.com
 
 ## 目录
 
@@ -1482,6 +1492,26 @@ Authorization: Bearer <your_access_token>
 
 ---
 
-**最后更新**: 2024-01-15  
+## 🔗 相关文档
+
+- **[README](README.md)** - 项目介绍和快速开始
+- **[用户指南](USER_GUIDE.md)** - 详细的功能使用说明
+- **[开发文档](DEVELOPMENT.md)** - 本地开发环境设置
+- **[架构文档](ARCHITECTURE.md)** - 系统设计和架构
+- **[故障排除](TROUBLESHOOTING.md)** - API错误排查和解决
+
+## ❓ 需要帮助？
+
+- 查看 **[故障排除文档](TROUBLESHOOTING.md)** 获取API错误解决方案
+- 阅读 **[开发文档](DEVELOPMENT.md)** 了解开发环境配置
+- 在 **[GitHub Issues](https://github.com/QAQ-AWA/ca-pdf/issues)** 提问
+
+---
+
+**ca-pdf API 文档**
+
+**项目地址**: https://github.com/QAQ-AWA/ca-pdf  
+**联系邮箱**: 7780102@qq.com  
+**最后更新**: 2025-01-15  
 **API 版本**: v1  
 **总计端点数**: 30+
