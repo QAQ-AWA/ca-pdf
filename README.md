@@ -82,6 +82,28 @@ ca-pdf 让您能够快速搭建一套独立的 PDF 数字签章系统，完全�
 - **PostgreSQL** 12+ （生产推荐，本地开发可用SQLite）
 - 一个可解析到宿主机的**域名**（开发用 `*.localtest.me` 或 `localhost`）
 
+### 一键交互式部署（推荐）
+
+快速体验或生产部署可以使用交互式脚本，一次性完成环境检查、配置生成、容器启动与迁移执行：
+
+```bash
+# 交互式部署，将自动生成 .env/.env.docker/docker-compose.yml 等文件
+bash scripts/deploy.sh
+
+# 部署完成后可运行 down 子命令清理资源
+bash scripts/deploy.sh down
+```
+
+脚本会执行以下步骤：
+
+1. 检查操作系统、Docker/Compose 版本、80/443 端口占用、内存与磁盘空间。
+2. 引导输入域名、本地/生产模式、管理员邮箱与数据库存储路径，并自动生成强密码、JWT/存储密钥。
+3. 渲染 `.env`、`.env.docker`、`docker-compose.yml` 以及 Traefik 动态配置，自签或申请证书。
+4. 执行 `docker compose up -d`，等待健康检查并自动运行 Alembic 迁移。
+5. 成功后打印前端、后端健康检查、API 文档地址以及管理员账号密码，日志输出至 `logs/deploy-YYYYMMDD.log`。
+
+若需完全自定义部署，可参考下方的手动步骤或查看《DEPLOYMENT.md》。
+
 ### 本地开发安装
 
 #### 1. 克隆仓库并进入项目目录
