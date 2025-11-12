@@ -62,13 +62,47 @@ require_command() {
   fi
 }
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+on_error() {
+  local exit_code=$?
+  local line_no=${1:-unknown}
+  log_error "脚本执行失败（第 ${line_no} 行，退出码 ${exit_code}）。"
+  log_error "请查看日志文件获取详情：${LOG_FILE:-未生成}"
+  exit ${exit_code}
+}
+
+trap 'on_error "$LINENO"' ERR
+
+SCRIPT_SOURCE="${BASH_SOURCE[0]}"
+while [[ -h "${SCRIPT_SOURCE}" ]]; do
+  SCRIPT_DIR_TEMP="$(cd -P "$(dirname "${SCRIPT_SOURCE}")" && pwd)"
+  SCRIPT_SOURCE="$(readlink "${SCRIPT_SOURCE}")"
+  [[ ${SCRIPT_SOURCE} != /* ]] && SCRIPT_SOURCE="${SCRIPT_DIR_TEMP}/${SCRIPT_SOURCE}"
+done
+DEFAULT_SCRIPT_DIR="$(cd -P "$(dirname "${SCRIPT_SOURCE}")" && pwd)"
+DEFAULT_PROJECT_ROOT="$(cd "${DEFAULT_SCRIPT_DIR}/.." && pwd)"
+
+if [[ -n "${CAPDF_HOME:-}" ]]; then
+  PROJECT_ROOT="$(cd "${CAPDF_HOME}" && pwd)"
+else
+  PROJECT_ROOT="${DEFAULT_PROJECT_ROOT}"
+fi
+SCRIPT_DIR="${PROJECT_ROOT}/scripts"
+
 LOG_DIR="${PROJECT_ROOT}/logs"
-mkdir -p "${LOG_DIR}"
-LOG_FILE="${LOG_DIR}/deploy-$(date +%Y%m%d).log"
+BACKUP_DIR="${PROJECT_ROOT}/backups"
+mkdir -p "${LOG_DIR}" "${BACKUP_DIR}"
+LOG_FILE="${LOG_DIR}/installer-$(date +%Y%m%d).log"
 touch "${LOG_FILE}"
 exec > >(tee -a "${LOG_FILE}") 2>&1
+
+CAPDF_REMOTE_REPO="${CAPDF_REMOTE_REPO:-QAQ-AWA/ca-pdf}"
+CAPDF_CHANNEL_FILE="${PROJECT_ROOT}/.capdf-channel"
+if [[ -z "${CAPDF_CHANNEL:-}" && -f "${CAPDF_CHANNEL_FILE}" ]]; then
+  CAPDF_CHANNEL="$(<"${CAPDF_CHANNEL_FILE}")"
+fi
+CAPDF_CHANNEL="${CAPDF_CHANNEL:-main}"
+CAPDF_CHANNEL="$(printf "%s" "${CAPDF_CHANNEL}" | tr -d ' \n\r')"
+CAPDF_RAW_BASE_URL="https://raw.githubusercontent.com/${CAPDF_REMOTE_REPO}/${CAPDF_CHANNEL}"
 
 COMPOSE_FILE="${PROJECT_ROOT}/docker-compose.yml"
 ENV_FILE="${PROJECT_ROOT}/.env"
@@ -138,6 +172,81 @@ detect_docker_compose() {
     log_error "未找到 docker compose，请先安装 Docker Compose V2 或兼容版本。"
     exit 1
   fi
+}
+
+compose() {
+  detect_docker_compose
+  if [[ ! -f "${COMPOSE_FILE}" ]]; then
+    log_error "未找到 ${COMPOSE_FILE}，请先运行 capdf install 生成配置。"
+    exit 1
+  fi
+  ${COMPOSE_CMD} -f "${COMPOSE_FILE}" "$@"
+}
+
+is_stack_running() {
+  detect_docker_compose
+  if [[ ! -f "${COMPOSE_FILE}" ]]; then
+    return 1
+  fi
+  local status
+  status=$(${COMPOSE_CMD} -f "${COMPOSE_FILE}" ps 2>/dev/null || true)
+  if echo "${status}" | grep -qE "Up|running"; then
+    return 0
+  fi
+  return 1
+}
+
+ensure_env_ready() {
+  if [[ ! -f "${ENV_FILE}" || ! -f "${ENV_DOCKER_FILE}" ]]; then
+    log_error "缺少必要的环境文件，请先运行 capdf install 完成初始化。"
+    exit 1
+  fi
+}
+
+print_runtime_summary() {
+  local frontend_url backend_url docs_url
+  frontend_url=$(get_env_var "VITE_PUBLIC_BASE_URL")
+  backend_url=$(get_env_var "VITE_API_BASE_URL")
+  if [[ -z "${frontend_url}" ]]; then
+    frontend_url=$(get_env_var "FRONTEND_URL" "https://app.localtest.me")
+  fi
+  if [[ -z "${backend_url}" ]]; then
+    backend_url=$(get_env_var "BACKEND_URL" "https://api.localtest.me")
+  fi
+  docs_url="${backend_url%/}/docs"
+  printf "\n"
+  log_info "访问入口："
+  printf "  %b前端%b: %s\n" "${BOLD}" "${RESET}" "${frontend_url}"
+  printf "  %b后端健康检查%b: %s/health\n" "${BOLD}" "${RESET}" "${backend_url}"
+  printf "  %bAPI 文档%b: %s\n" "${BOLD}" "${RESET}" "${docs_url}"
+}
+
+doctor_check_port() {
+  local port="$1"
+  if command -v ss >/dev/null 2>&1; then
+    if ss -ltn "sport = :${port}" 2>/dev/null | grep -q ":${port}"; then
+      log_warn "端口 ${port} 已被占用。"
+    else
+      log_success "端口 ${port} 可用。"
+    fi
+  elif command -v lsof >/dev/null 2>&1; then
+    if lsof -i "TCP:${port}" -sTCP:LISTEN -P -n >/dev/null 2>&1; then
+      log_warn "端口 ${port} 已被占用。"
+    else
+      log_success "端口 ${port} 可用。"
+    fi
+  else
+    log_warn "无法检测端口 ${port} 是否占用（缺少 ss/lsof）。"
+  fi
+}
+
+download_from_repo() {
+  local channel="$1"
+  local remote_path="$2"
+  local target_path="$3"
+  local base="https://raw.githubusercontent.com/${CAPDF_REMOTE_REPO}/${channel}"
+  curl -fsSL --retry 3 --retry-delay 1 --retry-connrefused "${base}/${remote_path}" -o "${target_path}.tmp"
+  mv "${target_path}.tmp" "${target_path}"
 }
 
 check_os() {
@@ -632,6 +741,23 @@ print_summary() {
   printf "\n日志文件：%s\n" "${LOG_FILE}"
 }
 
+stop_stack() {
+  detect_docker_compose
+  if [[ ! -f "${COMPOSE_FILE}" ]]; then
+    log_warn "未找到 ${COMPOSE_FILE}，跳过停止操作。"
+    return
+  fi
+  log_step "停止 Docker Compose 集群"
+  ${COMPOSE_CMD} -f "${COMPOSE_FILE}" down --remove-orphans
+  log_success "服务已停止。"
+}
+
+restart_stack() {
+  stop_stack
+  log_step "重新启动 Docker Compose 集群"
+  start_stack
+}
+
 handle_cleanup_command() {
   log_step "清理 Docker 资源"
   detect_docker_compose
@@ -672,6 +798,33 @@ verify_env_docker_file() {
   return 0
 }
 
+get_env_var() {
+  local key="$1"
+  local default_value="${2:-}"
+  local file line value
+  for file in "${ENV_FILE}" "${ENV_DOCKER_FILE}"; do
+    if [[ -f "${file}" ]]; then
+      line=$(grep -E "^${key}=" "${file}" | tail -n1 || true)
+      if [[ -n "${line}" ]]; then
+        value="${line#*=}"
+        value="${value%%#*}"
+        value="$(printf '%s' "${value}" | sed -e 's/\\r$//' -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
+        value="${value%\"}"
+        value="${value#\"}"
+        value="${value%\'}"
+        value="${value#\'}"
+        printf '%s' "${value}"
+        return 0
+      fi
+    fi
+  done
+  if [[ -n "${default_value}" ]]; then
+    printf '%s' "${default_value}"
+    return 0
+  fi
+  return 1
+}
+
 prepare_compose_file() {
   SHOULD_WRITE_COMPOSE="true"
   if [[ -f "${COMPOSE_FILE}" ]]; then
@@ -684,11 +837,7 @@ prepare_compose_file() {
   fi
 }
 
-main() {
-  if [[ "${1:-}" == "down" ]]; then
-    handle_cleanup_command
-  fi
-
+command_install() {
   log_step "环境预检查"
   check_os
   check_docker
@@ -729,4 +878,441 @@ main() {
   print_summary
 }
 
+command_up() {
+  ensure_env_ready
+  log_step "启动 ca-pdf 服务"
+  start_stack
+  print_runtime_summary
+}
+
+command_down() {
+  if [[ "${1:-}" == "--clean" ]]; then
+    handle_cleanup_command
+  else
+    stop_stack
+  fi
+}
+
+command_restart() {
+  ensure_env_ready
+  restart_stack
+  print_runtime_summary
+}
+
+command_logs() {
+  ensure_env_ready
+  if [[ $# -eq 0 ]]; then
+    compose logs --tail 200 -f
+  else
+    compose logs "$@"
+  fi
+}
+
+command_status() {
+  if [[ ! -f "${COMPOSE_FILE}" ]]; then
+    log_warn "未找到 ${COMPOSE_FILE}，请先运行 capdf install。"
+    return
+  fi
+  compose ps
+}
+
+command_migrate() {
+  ensure_env_ready
+  detect_docker_compose
+  local started_temp=0
+  if ! is_stack_running; then
+    log_warn "服务未运行，将临时启动数据库和后端用于迁移。"
+    compose up -d db backend
+    started_temp=1
+    if ! wait_for_service "db" 180; then
+      log_error "数据库启动失败，无法执行迁移。"
+      exit 1
+    fi
+    if ! wait_for_service "backend" 300; then
+      log_error "后端启动失败，无法执行迁移。"
+      exit 1
+    fi
+  fi
+  run_migrations
+  if [[ ${started_temp} -eq 1 ]]; then
+    compose stop backend
+    compose stop db
+    log_info "已停止临时启动的容器。"
+  fi
+}
+
+command_backup() {
+  ensure_env_ready
+  detect_docker_compose
+  local timestamp backup_path tmp_dir db_name db_user data_path
+  timestamp=$(date +%Y%m%d%H%M%S)
+  backup_path="${BACKUP_DIR}/capdf-backup-${timestamp}.tar.gz"
+  tmp_dir=$(mktemp -d)
+  db_name=$(get_env_var "POSTGRES_DB" "app_db")
+  db_user=$(get_env_var "POSTGRES_USER" "app_user")
+  data_path=$(get_env_var "POSTGRES_DATA_PATH")
+
+  local started_temp=0
+  if ! is_stack_running; then
+    log_warn "服务未运行，将临时启动数据库用于备份。"
+    compose up -d db
+    started_temp=1
+    if ! wait_for_service "db" 180; then
+      log_error "数据库启动失败，无法执行备份。"
+      rm -rf "${tmp_dir}"
+      exit 1
+    fi
+  fi
+
+  log_step "导出数据库 ${db_name}"
+  if ! ${COMPOSE_CMD} -f "${COMPOSE_FILE}" exec -T db pg_dump -U "${db_user}" "${db_name}" > "${tmp_dir}/postgres.sql"; then
+    rm -rf "${tmp_dir}"
+    log_error "数据库导出失败。"
+    exit 1
+  fi
+
+  mkdir -p "${tmp_dir}/env"
+  cp -f "${ENV_FILE}" "${tmp_dir}/env/.env"
+  cp -f "${ENV_DOCKER_FILE}" "${tmp_dir}/env/.env.docker"
+  if [[ -d "${PROJECT_ROOT}/config" ]]; then
+    cp -a "${PROJECT_ROOT}/config" "${tmp_dir}/config"
+  fi
+  if [[ -n "${data_path}" && -d "${data_path}" ]]; then
+    cp -a "${data_path}" "${tmp_dir}/postgres_data"
+  fi
+
+  tar -czf "${backup_path}" -C "${tmp_dir}" .
+  rm -rf "${tmp_dir}"
+
+  if [[ ${started_temp} -eq 1 ]]; then
+    compose stop db
+  fi
+
+  log_success "备份完成：${backup_path}"
+}
+
+command_restore() {
+  ensure_env_ready
+  local backup_file="${1:-}"
+  if [[ -z "${backup_file}" ]]; then
+    read -r -p "请输入备份文件路径: " backup_file || true
+  fi
+  backup_file=$(echo "${backup_file}" | xargs)
+  if [[ -z "${backup_file}" ]]; then
+    log_error "未提供备份文件。"
+    exit 1
+  fi
+  if [[ ! -f "${backup_file}" ]]; then
+    log_error "备份文件不存在：${backup_file}"
+    exit 1
+  fi
+  if ! prompt_confirm "恢复将覆盖当前配置与数据，确认继续？" "n"; then
+    log_info "已取消恢复操作。"
+    return
+  fi
+
+  stop_stack
+
+  local tmp_dir
+  tmp_dir=$(mktemp -d)
+  tar -xzf "${backup_file}" -C "${tmp_dir}"
+  if [[ -f "${tmp_dir}/env/.env" ]]; then
+    cp -f "${tmp_dir}/env/.env" "${ENV_FILE}"
+  fi
+  if [[ -f "${tmp_dir}/env/.env.docker" ]]; then
+    cp -f "${tmp_dir}/env/.env.docker" "${ENV_DOCKER_FILE}"
+  fi
+  if [[ -d "${tmp_dir}/config" ]]; then
+    rm -rf "${PROJECT_ROOT}/config"
+    cp -a "${tmp_dir}/config" "${PROJECT_ROOT}/config"
+  fi
+
+  local data_path
+  data_path=$(get_env_var "POSTGRES_DATA_PATH")
+  if [[ -n "${data_path}" && -d "${tmp_dir}/postgres_data" ]]; then
+    rm -rf "${data_path}"
+    cp -a "${tmp_dir}/postgres_data" "${data_path}"
+  fi
+
+  detect_docker_compose
+  compose up -d db
+  if ! wait_for_service "db" 180; then
+    rm -rf "${tmp_dir}"
+    log_error "数据库启动失败，无法恢复。"
+    exit 1
+  fi
+
+  local db_name db_user
+  db_name=$(get_env_var "POSTGRES_DB" "app_db")
+  db_user=$(get_env_var "POSTGRES_USER" "app_user")
+  log_step "恢复数据库 ${db_name}"
+  ${COMPOSE_CMD} -f "${COMPOSE_FILE}" exec -T db bash -c "psql -U ${db_user} -d postgres -c \"DROP DATABASE IF EXISTS \\\"${db_name}\\\";\""
+  ${COMPOSE_CMD} -f "${COMPOSE_FILE}" exec -T db bash -c "psql -U ${db_user} -d postgres -c \"CREATE DATABASE \\\"${db_name}\\\";\""
+  if ! ${COMPOSE_CMD} -f "${COMPOSE_FILE}" exec -T db psql -U "${db_user}" -d "${db_name}" < "${tmp_dir}/postgres.sql"; then
+    rm -rf "${tmp_dir}"
+    log_error "数据库恢复失败。"
+    exit 1
+  fi
+
+  rm -rf "${tmp_dir}"
+  compose stop db
+
+  log_success "备份恢复完成，可执行 capdf up 重新启动服务。"
+}
+
+command_config() {
+  if [[ ! -f "${ENV_FILE}" ]]; then
+    log_warn "尚未初始化配置，请运行 capdf install。"
+    if prompt_confirm "是否现在运行安装向导？" "y"; then
+      command_install
+    fi
+    return
+  fi
+  log_step "当前配置信息"
+  log_info "管理员邮箱: $(get_env_var "ADMIN_EMAIL")"
+  log_info "CORS 配置: $(get_env_var "BACKEND_CORS_ORIGINS")"
+  log_info "数据库名称: $(get_env_var "POSTGRES_DB")"
+  if prompt_confirm "是否重新运行配置向导以更新以上信息？" "n"; then
+    command_install
+  fi
+}
+
+command_doctor() {
+  log_step "系统检查"
+  check_os
+  check_docker
+  check_resources
+
+  log_step "端口检查"
+  doctor_check_port 80
+  doctor_check_port 443
+  doctor_check_port 8000
+  doctor_check_port 3000
+
+  if [[ -f "${ENV_FILE}" ]]; then
+    local cors
+    cors=$(get_env_var "BACKEND_CORS_ORIGINS")
+    if [[ -n "${cors}" ]]; then
+      if validate_json_list "${cors}"; then
+        log_success "BACKEND_CORS_ORIGINS 格式正确。"
+      else
+        log_warn "BACKEND_CORS_ORIGINS 不是合法 JSON 列表：${cors}"
+      fi
+    fi
+  fi
+
+  if is_stack_running; then
+    log_step "容器状态"
+    compose ps
+    local db_user db_name
+    db_user=$(get_env_var "POSTGRES_USER" "app_user")
+    db_name=$(get_env_var "POSTGRES_DB" "app_db")
+    if ${COMPOSE_CMD} -f "${COMPOSE_FILE}" exec -T db pg_isready -U "${db_user}" -d "${db_name}" >/dev/null 2>&1; then
+      log_success "数据库连接正常。"
+    else
+      log_warn "数据库连接检查失败。"
+    fi
+  else
+    log_warn "容器当前未运行，可执行 capdf up 启动。"
+  fi
+}
+
+command_self_update() {
+  local channel="${1:-${CAPDF_CHANNEL}}"
+  if [[ -z "${channel}" ]]; then
+    channel="main"
+  fi
+  log_step "从 ${CAPDF_REMOTE_REPO}@${channel} 拉取最新脚本"
+  download_from_repo "${channel}" "scripts/deploy.sh" "${SCRIPT_DIR}/deploy.sh"
+  chmod +x "${SCRIPT_DIR}/deploy.sh"
+  download_from_repo "${channel}" "scripts/install.sh" "${SCRIPT_DIR}/install.sh"
+  chmod +x "${SCRIPT_DIR}/install.sh"
+  download_from_repo "${channel}" ".env.example" "${PROJECT_ROOT}/.env.example"
+  download_from_repo "${channel}" ".env.docker.example" "${PROJECT_ROOT}/.env.docker.example"
+  download_from_repo "${channel}" "docker-compose.yml" "${PROJECT_ROOT}/docker-compose.example.yml"
+  echo "${channel}" > "${CAPDF_CHANNEL_FILE}"
+  log_success "自更新完成（频道：${channel}）。"
+  log_info "如需立即应用新脚本，请重新运行 capdf。"
+}
+
+command_uninstall() {
+  if ! prompt_confirm "确认卸载 ca-pdf 并停止所有容器？" "n"; then
+    log_info "已取消卸载操作。"
+    return
+  fi
+  stop_stack
+  if prompt_confirm "是否删除当前配置和数据文件？" "n"; then
+    rm -f "${ENV_FILE}" "${ENV_DOCKER_FILE}" "${COMPOSE_FILE}"
+    rm -rf "${TRAEFIK_DIR}"
+    local data_path
+    data_path=$(get_env_var "POSTGRES_DATA_PATH")
+    if [[ -n "${data_path}" ]]; then
+      rm -rf "${data_path}"
+    fi
+    log_success "已删除配置与数据。"
+  else
+    log_info "保留配置与数据文件。"
+  fi
+  log_warn "如需彻底移除脚本，可删除目录：${PROJECT_ROOT}"
+}
+
+show_menu() {
+  while true; do
+    printf "\n%bca-pdf 运维菜单%b\n" "${BOLD}" "${RESET}"
+    cat <<'MENU'
+[1] 安装 / 初始化
+[2] 启动服务
+[3] 停止服务
+[4] 重启服务
+[5] 查看日志
+[6] 查看状态
+[7] 执行数据库迁移
+[8] 创建备份
+[9] 恢复备份
+[10] 配置管理
+[11] 健康检查
+[12] 自更新
+[13] 卸载
+[0] 退出
+MENU
+    read -r -p "请选择操作: " choice || true
+    case "${choice}" in
+      1)
+        command_install
+        ;;
+      2)
+        command_up
+        ;;
+      3)
+        command_down
+        ;;
+      4)
+        command_restart
+        ;;
+      5)
+        read -r -p "输入服务名称（留空为全部）: " svc || true
+        if [[ -n "${svc}" ]]; then
+          command_logs "${svc}"
+        else
+          command_logs
+        fi
+        ;;
+      6)
+        command_status
+        ;;
+      7)
+        command_migrate
+        ;;
+      8)
+        command_backup
+        ;;
+      9)
+        read -r -p "备份文件路径: " backup_path || true
+        command_restore "${backup_path}"
+        ;;
+      10)
+        command_config
+        ;;
+      11)
+        command_doctor
+        ;;
+      12)
+        read -r -p "更新频道（默认: ${CAPDF_CHANNEL}）: " new_channel || true
+        command_self_update "${new_channel}"
+        ;;
+      13)
+        command_uninstall
+        ;;
+      0)
+        log_info "已退出。"
+        break
+        ;;
+      *)
+        log_warn "无效选择，请重新输入。"
+        ;;
+    esac
+  done
+}
+
+print_help() {
+  cat <<'USAGE'
+用法: capdf <命令> [参数]
+
+可用命令：
+  install           运行安装向导
+  up                启动服务
+  down [--clean]    停止服务（--clean 同时清理数据卷）
+  restart           重启服务
+  logs [args]       查看日志（参数将传递给 docker compose logs）
+  status            查看容器状态
+  migrate           执行数据库迁移
+  backup            创建备份归档
+  restore [file]    还原备份
+  config            查看或重新配置环境
+  doctor            运行健康检查
+  self-update [ch]  从指定分支/频道更新脚本
+  uninstall         卸载并停止服务
+  menu              打开交互式菜单
+  help              显示帮助信息
+USAGE
+}
+
+main() {
+  local command="${1:-menu}";
+  shift || true
+  case "${command}" in
+    install)
+      command_install "$@"
+      ;;
+    up)
+      command_up "$@"
+      ;;
+    down)
+      command_down "$@"
+      ;;
+    restart)
+      command_restart "$@"
+      ;;
+    logs)
+      command_logs "$@"
+      ;;
+    status)
+      command_status "$@"
+      ;;
+    migrate)
+      command_migrate "$@"
+      ;;
+    backup)
+      command_backup "$@"
+      ;;
+    restore)
+      command_restore "$@"
+      ;;
+    config)
+      command_config "$@"
+      ;;
+    doctor)
+      command_doctor "$@"
+      ;;
+    self-update)
+      command_self_update "$@"
+      ;;
+    uninstall)
+      command_uninstall "$@"
+      ;;
+    menu|interactive)
+      show_menu
+      ;;
+    help|-h|--help)
+      print_help
+      ;;
+    *)
+      log_error "未知命令: ${command}"
+      print_help
+      exit 1
+      ;;
+  esac
+}
+
 main "$@"
+
