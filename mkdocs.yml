@@ -1,0 +1,95 @@
+site_name: ca-pdf Documentation
+repo_url: https://github.com/QAQ-AWA/ca-pdf
+site_description: "ca-pdf 自托管 PDF 电子签章平台文档"
+
+theme:
+  name: material
+  language: zh
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - content.tabs
+    - content.code.copy
+
+plugins:
+  - search
+  - i18n:
+      default_language: zh
+      default_language_label: 中文
+      docs_structure: folder
+      languages:
+        zh:
+          name: 中文
+        en:
+          name: English
+          nav:
+            - Home: index.md
+            - Guides:
+                - User Guide: USER_GUIDE.md
+                - Deployment: DEPLOYMENT.md
+                - Troubleshooting: TROUBLESHOOTING.md
+            - Developers:
+                - Developer Guide: DEVELOPMENT.md
+                - Architecture Overview: ARCHITECTURE.md
+                - API Reference: API.md
+            - Governance:
+                - Security Guide: SECURITY.md
+                - Contributing: CONTRIBUTING.md
+                - Changelog: CHANGELOG.md
+            - Planning:
+                - Documentation Map: DOCUMENTATION.md
+                - Documentation Usage Guide: DOCS_USAGE_GUIDE.md
+                - Development Roadmap: DEVELOPMENT_ROADMAP.md
+                - Project Status Summary: PROJECT_STATUS_SUMMARY.md
+                - Project Progress Analysis: PROJECT_PROGRESS_ANALYSIS.md
+                - Maintenance Log: MAINTENANCE_LOG.md
+
+nav:
+  - 首页: index.md
+  - 快速上手:
+      - 用户指南: USER_GUIDE.md
+      - 部署手册: DEPLOYMENT.md
+      - 故障排查: TROUBLESHOOTING.md
+  - 开发与架构:
+      - 开发指南: DEVELOPMENT.md
+      - 架构设计: ARCHITECTURE.md
+      - API 文档: API.md
+  - 治理与安全:
+      - 安全指南: SECURITY.md
+      - 贡献指南: CONTRIBUTING.md
+      - 更新日志: CHANGELOG.md
+  - 项目规划:
+      - 文档地图: DOCUMENTATION.md
+      - 文档使用指南: DOCS_USAGE_GUIDE.md
+      - 开发路线图: DEVELOPMENT_ROADMAP.md
+      - 项目状态摘要: PROJECT_STATUS_SUMMARY.md
+      - 项目进展分析: PROJECT_PROGRESS_ANALYSIS.md
+      - 文档维护日志: MAINTENANCE_LOG.md
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - def_list
+  - md_in_html
+  - toc:
+      permalink: true
+  - pymdownx.caret
+  - pymdownx.details
+  - pymdownx.highlight
+  - pymdownx.inlinehilite
+  - pymdownx.magiclink
+  - pymdownx.mark
+  - pymdownx.smartsymbols
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.tilde
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/QAQ-AWA/ca-pdf
+    - icon: fontawesome/solid/envelope
+      link: mailto:7780102@qq.com
+
+copyright: "Repository: <a href='https://github.com/QAQ-AWA/ca-pdf'>QAQ-AWA/ca-pdf</a> · Contact: <a href='mailto:7780102@qq.com'>7780102@qq.com</a>"
