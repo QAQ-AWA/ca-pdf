@@ -562,33 +562,10 @@ build_traefik_assets() {
   fi
   printf -v TRAEFIK_COMMAND '      - %s\n' "${command_items[@]}"
 
-  local backend_labels=(
-    "traefik.enable=true"
-    "traefik.http.routers.backend-web.rule=Host(\`${BACKEND_DOMAIN}\`)"
-    "traefik.http.routers.backend-web.entrypoints=web"
-    "traefik.http.routers.backend-web.middlewares=redirect-to-https@file"
-    "traefik.http.routers.backend.rule=Host(\`${BACKEND_DOMAIN}\`)"
-    "traefik.http.routers.backend.entrypoints=websecure"
-    "traefik.http.services.backend.loadbalancer.server.port=8000"
-  )
-  local frontend_labels=(
-    "traefik.enable=true"
-    "traefik.http.routers.frontend-web.rule=Host(\`${FRONTEND_DOMAIN}\`)"
-    "traefik.http.routers.frontend-web.entrypoints=web"
-    "traefik.http.routers.frontend-web.middlewares=redirect-to-https@file"
-    "traefik.http.routers.frontend.rule=Host(\`${FRONTEND_DOMAIN}\`)"
-    "traefik.http.routers.frontend.entrypoints=websecure"
-    "traefik.http.services.frontend.loadbalancer.server.port=8080"
-  )
-  if [[ "${MODE}" == "production" ]]; then
-    backend_labels+=("traefik.http.routers.backend.tls.certresolver=le")
-    frontend_labels+=("traefik.http.routers.frontend.tls.certresolver=le")
-  else
-    backend_labels+=("traefik.http.routers.backend.tls=true")
-    frontend_labels+=("traefik.http.routers.frontend.tls=true")
-  fi
-  printf -v BACKEND_LABELS '      - %s\n' "${backend_labels[@]}"
-  printf -v FRONTEND_LABELS '      - %s\n' "${frontend_labels[@]}"
+  # Note: Routers are now defined in dynamic.yml (file provider)
+  # Docker labels are not needed for routing as file-based config takes precedence
+  BACKEND_LABELS=""
+  FRONTEND_LABELS=""
 }
 
 write_env_file() {
@@ -652,11 +629,66 @@ write_dynamic_config() {
     log_success "已生成自签名证书：${cert_file}"
     cat >"${TRAEFIK_DYNAMIC_FILE}" <<EOF
 http:
+  routers:
+    # Backend HTTP router (redirect to HTTPS)
+    backend-web:
+      rule: "Host(\`${BACKEND_DOMAIN}\`)"
+      entryPoints:
+        - web
+      middlewares:
+        - redirect-to-https
+      service: backend
+    
+    # Backend HTTPS router
+    backend:
+      rule: "Host(\`${BACKEND_DOMAIN}\`)"
+      entryPoints:
+        - websecure
+      service: backend
+      tls: {}
+    
+    # Frontend HTTP router (redirect to HTTPS)
+    frontend-web:
+      rule: "Host(\`${FRONTEND_DOMAIN}\`)"
+      entryPoints:
+        - web
+      middlewares:
+        - redirect-to-https
+      service: frontend
+    
+    # Frontend HTTPS router
+    frontend:
+      rule: "Host(\`${FRONTEND_DOMAIN}\`)"
+      entryPoints:
+        - websecure
+      service: frontend
+      tls: {}
+  
+  services:
+    backend:
+      loadBalancer:
+        servers:
+          - url: "http://backend:8000"
+        healthCheck:
+          path: "/health"
+          interval: "30s"
+          timeout: "5s"
+    
+    frontend:
+      loadBalancer:
+        servers:
+          - url: "http://frontend:8080"
+        healthCheck:
+          path: "/"
+          interval: "30s"
+          timeout: "5s"
+  
   middlewares:
     redirect-to-https:
       redirectScheme:
         scheme: https
         permanent: true
+
 tls:
   options:
     default:
@@ -666,13 +698,70 @@ tls:
       keyFile: /etc/traefik/dynamic/certs/selfsigned.key
 EOF
   else
-    cat >"${TRAEFIK_DYNAMIC_FILE}" <<'EOF'
+    cat >"${TRAEFIK_DYNAMIC_FILE}" <<EOF
 http:
+  routers:
+    # Backend HTTP router (redirect to HTTPS)
+    backend-web:
+      rule: "Host(\`${BACKEND_DOMAIN}\`)"
+      entryPoints:
+        - web
+      middlewares:
+        - redirect-to-https
+      service: backend
+    
+    # Backend HTTPS router
+    backend:
+      rule: "Host(\`${BACKEND_DOMAIN}\`)"
+      entryPoints:
+        - websecure
+      service: backend
+      tls:
+        certResolver: le
+    
+    # Frontend HTTP router (redirect to HTTPS)
+    frontend-web:
+      rule: "Host(\`${FRONTEND_DOMAIN}\`)"
+      entryPoints:
+        - web
+      middlewares:
+        - redirect-to-https
+      service: frontend
+    
+    # Frontend HTTPS router
+    frontend:
+      rule: "Host(\`${FRONTEND_DOMAIN}\`)"
+      entryPoints:
+        - websecure
+      service: frontend
+      tls:
+        certResolver: le
+  
+  services:
+    backend:
+      loadBalancer:
+        servers:
+          - url: "http://backend:8000"
+        healthCheck:
+          path: "/health"
+          interval: "30s"
+          timeout: "5s"
+    
+    frontend:
+      loadBalancer:
+        servers:
+          - url: "http://frontend:8080"
+        healthCheck:
+          path: "/"
+          interval: "30s"
+          timeout: "5s"
+  
   middlewares:
     redirect-to-https:
       redirectScheme:
         scheme: https
         permanent: true
+
 tls:
   options:
     default:
