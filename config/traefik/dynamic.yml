@@ -1,0 +1,67 @@
+http:
+  routers:
+    # Backend HTTP router (redirect to HTTPS)
+    backend-web:
+      rule: "Host(`api.localtest.me`)"
+      entryPoints:
+        - web
+      middlewares:
+        - redirect-to-https
+      service: backend
+    
+    # Backend HTTPS router
+    backend:
+      rule: "Host(`api.localtest.me`)"
+      entryPoints:
+        - websecure
+      service: backend
+      tls:
+        certResolver: le
+    
+    # Frontend HTTP router (redirect to HTTPS)
+    frontend-web:
+      rule: "Host(`app.localtest.me`)"
+      entryPoints:
+        - web
+      middlewares:
+        - redirect-to-https
+      service: frontend
+    
+    # Frontend HTTPS router
+    frontend:
+      rule: "Host(`app.localtest.me`)"
+      entryPoints:
+        - websecure
+      service: frontend
+      tls:
+        certResolver: le
+  
+  services:
+    backend:
+      loadBalancer:
+        servers:
+          - url: "http://backend:8000"
+        healthCheck:
+          path: "/health"
+          interval: "30s"
+          timeout: "5s"
+    
+    frontend:
+      loadBalancer:
+        servers:
+          - url: "http://frontend:8080"
+        healthCheck:
+          path: "/"
+          interval: "30s"
+          timeout: "5s"
+  
+  middlewares:
+    redirect-to-https:
+      redirectScheme:
+        scheme: https
+        permanent: true
+
+tls:
+  options:
+    default:
+      minVersion: VersionTLS12

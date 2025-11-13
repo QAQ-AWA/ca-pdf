@@ -1,0 +1,9 @@
+# Ignore all certificate files
+*.crt
+*.key
+*.pem
+*.p12
+*.pfx
+
+# But track this .gitignore file
+!.gitignore

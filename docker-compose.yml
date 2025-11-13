@@ -4,6 +4,7 @@ services:
     command:
       - --providers.docker=true
       - --providers.docker.exposedbydefault=false
+      - --providers.file.directory=/etc/traefik/dynamic
       - --entrypoints.web.address=:80
       - --entrypoints.websecure.address=:443
       - --certificatesresolvers.le.acme.email=${TRAEFIK_ACME_EMAIL:-dev@example.com}
@@ -18,6 +19,7 @@ services:
       - "${TRAEFIK_HTTPS_PORT:-443}:443"
     volumes:
       - traefik_letsencrypt:/letsencrypt
+      - ./config/traefik:/etc/traefik/dynamic:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro
     networks:
       - edge
@@ -66,15 +68,6 @@ services:
     networks:
       - internal
       - edge
-    labels:
-      - traefik.enable=true
-      - traefik.http.routers.backend-web.rule=Host(`${BACKEND_DOMAIN:-api.localtest.me}`)
-      - traefik.http.routers.backend-web.entrypoints=web
-      - traefik.http.routers.backend-web.middlewares=redirect-to-https@docker
-      - traefik.http.routers.backend.rule=Host(`${BACKEND_DOMAIN:-api.localtest.me}`)
-      - traefik.http.routers.backend.entrypoints=websecure
-      - traefik.http.routers.backend.tls.certresolver=le
-      - traefik.http.services.backend.loadbalancer.server.port=8000
 
   frontend:
     build:
@@ -91,15 +84,6 @@ services:
         condition: service_healthy
     networks:
       - edge
-    labels:
-      - traefik.enable=true
-      - traefik.http.routers.frontend-web.rule=Host(`${FRONTEND_DOMAIN:-app.localtest.me}`)
-      - traefik.http.routers.frontend-web.entrypoints=web
-      - traefik.http.routers.frontend-web.middlewares=redirect-to-https@docker
-      - traefik.http.routers.frontend.rule=Host(`${FRONTEND_DOMAIN:-app.localtest.me}`)
-      - traefik.http.routers.frontend.entrypoints=websecure
-      - traefik.http.routers.frontend.tls.certresolver=le
-      - traefik.http.services.frontend.loadbalancer.server.port=8080
 
 networks:
   internal:
