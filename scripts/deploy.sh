@@ -1077,43 +1077,148 @@ command_config() {
 }
 
 command_doctor() {
-  log_step "系统检查"
+  log_step "======== ca-pdf 系统诊断 ========" 
+  
+  log_step "1. 操作系统检查"
   check_os
+  if [[ -f /etc/os-release ]]; then
+    local os_name os_version
+    os_name=$(grep "^NAME=" /etc/os-release | cut -d'"' -f2)
+    os_version=$(grep "^VERSION=" /etc/os-release | cut -d'"' -f2 || echo "未知")
+    log_info "发行版: ${os_name} ${os_version}"
+  fi
+  
+  log_step "2. Docker 环境检查"
   check_docker
+  if command -v docker >/dev/null 2>&1; then
+    local docker_root
+    docker_root=$(docker info 2>/dev/null | grep "Docker Root Dir" | cut -d: -f2 | xargs || echo "未知")
+    log_info "Docker 数据目录: ${docker_root}"
+    
+    if docker ps >/dev/null 2>&1; then
+      log_success "Docker 守护进程运行正常"
+    else
+      log_error "无法连接到 Docker 守护进程"
+      log_info "请执行: sudo systemctl status docker"
+    fi
+  fi
+  
+  log_step "3. 系统资源检查"
   check_resources
-
-  log_step "端口检查"
+  
+  log_step "4. 网络检查"
+  if command -v ping >/dev/null 2>&1; then
+    if ping -c 1 -W 2 8.8.8.8 >/dev/null 2>&1; then
+      log_success "外网连接正常"
+    else
+      log_warn "无法连接到外网"
+    fi
+  fi
+  
+  if command -v host >/dev/null 2>&1 || command -v nslookup >/dev/null 2>&1; then
+    if host github.com >/dev/null 2>&1 || nslookup github.com >/dev/null 2>&1; then
+      log_success "DNS 解析正常"
+    else
+      log_warn "DNS 解析可能存在问题"
+    fi
+  fi
+  
+  log_step "5. 端口检查"
   doctor_check_port 80
   doctor_check_port 443
   doctor_check_port 8000
   doctor_check_port 3000
+  doctor_check_port 5432
 
+  log_step "6. 配置文件检查"
   if [[ -f "${ENV_FILE}" ]]; then
+    log_success "环境配置文件存在: .env"
     local cors
     cors=$(get_env_var "BACKEND_CORS_ORIGINS")
     if [[ -n "${cors}" ]]; then
       if validate_json_list "${cors}"; then
-        log_success "BACKEND_CORS_ORIGINS 格式正确。"
+        log_success "BACKEND_CORS_ORIGINS 格式正确"
       else
         log_warn "BACKEND_CORS_ORIGINS 不是合法 JSON 列表：${cors}"
       fi
     fi
+    
+    local master_key
+    master_key=$(get_env_var "ENCRYPTED_STORAGE_MASTER_KEY")
+    if [[ -n "${master_key}" ]]; then
+      log_success "加密主密钥已配置"
+    else
+      log_warn "未找到加密主密钥配置"
+    fi
+  else
+    log_error "环境配置文件不存在，请先运行 capdf install"
   fi
+  
+  if [[ -f "${ENV_DOCKER_FILE}" ]]; then
+    log_success "Docker 配置文件存在: .env.docker"
+  else
+    log_warn "Docker 配置文件不存在: .env.docker"
+  fi
+  
+  if [[ -f "${COMPOSE_FILE}" ]]; then
+    log_success "Compose 配置文件存在: docker-compose.yml"
+    if command -v docker >/dev/null 2>&1; then
+      if ${COMPOSE_CMD} -f "${COMPOSE_FILE}" config >/dev/null 2>&1; then
+        log_success "docker-compose.yml 语法正确"
+      else
+        log_error "docker-compose.yml 语法错误，请检查"
+      fi
+    fi
+  else
+    log_warn "Compose 配置文件不存在，请先运行 capdf install"
+  fi
+  
+  log_step "7. 项目文件检查"
+  local required_dirs=("backend" "frontend" "scripts")
+  local missing_dirs=0
+  for dir in "${required_dirs[@]}"; do
+    if [[ -d "${PROJECT_ROOT}/${dir}" ]]; then
+      log_success "目录存在: ${dir}/"
+    else
+      log_error "目录缺失: ${dir}/"
+      missing_dirs=$((missing_dirs + 1))
+    fi
+  done
 
+  log_step "8. 容器状态检查"
   if is_stack_running; then
-    log_step "容器状态"
+    log_info "容器状态："
     compose ps
+    
     local db_user db_name
     db_user=$(get_env_var "POSTGRES_USER" "app_user")
     db_name=$(get_env_var "POSTGRES_DB" "app_db")
+    
     if ${COMPOSE_CMD} -f "${COMPOSE_FILE}" exec -T db pg_isready -U "${db_user}" -d "${db_name}" >/dev/null 2>&1; then
-      log_success "数据库连接正常。"
+      log_success "数据库连接正常"
     else
-      log_warn "数据库连接检查失败。"
+      log_warn "数据库连接检查失败"
+      log_info "请执行: capdf logs db"
+    fi
+    
+    local backend_url
+    backend_url=$(get_env_var "VITE_API_BASE_URL" "https://api.localtest.me")
+    if command -v curl >/dev/null 2>&1; then
+      if curl -fsSL -k "${backend_url}/health" >/dev/null 2>&1; then
+        log_success "后端 API 健康检查通过"
+      else
+        log_warn "无法访问后端 API: ${backend_url}/health"
+        log_info "请执行: capdf logs backend"
+      fi
     fi
   else
-    log_warn "容器当前未运行，可执行 capdf up 启动。"
+    log_warn "容器当前未运行"
+    log_info "启动服务: capdf up"
   fi
+  
+  log_step "======== 诊断完成 ========" 
+  log_info "如有问题，请查看日志: ${LOG_FILE}"
+  log_info "导出诊断信息: capdf export-logs"
 }
 
 command_self_update() {
@@ -1132,6 +1237,87 @@ command_self_update() {
   echo "${channel}" > "${CAPDF_CHANNEL_FILE}"
   log_success "自更新完成（频道：${channel}）。"
   log_info "如需立即应用新脚本，请重新运行 capdf。"
+}
+
+command_export_logs() {
+  local timestamp export_file tmp_dir
+  timestamp=$(date +%Y%m%d%H%M%S)
+  export_file="${BACKUP_DIR}/capdf-logs-${timestamp}.tar.gz"
+  tmp_dir=$(mktemp -d)
+  
+  log_step "收集诊断日志"
+  
+  mkdir -p "${tmp_dir}/logs"
+  mkdir -p "${tmp_dir}/config"
+  mkdir -p "${tmp_dir}/system"
+  
+  if [[ -d "${LOG_DIR}" ]]; then
+    cp -r "${LOG_DIR}"/* "${tmp_dir}/logs/" 2>/dev/null || true
+    log_info "已收集安装日志"
+  fi
+  
+  if is_stack_running; then
+    detect_docker_compose
+    log_info "导出容器日志..."
+    ${COMPOSE_CMD} -f "${COMPOSE_FILE}" logs --no-color > "${tmp_dir}/logs/docker-compose.log" 2>&1 || true
+    for service in traefik db backend frontend; do
+      ${COMPOSE_CMD} -f "${COMPOSE_FILE}" logs --no-color "${service}" > "${tmp_dir}/logs/${service}.log" 2>&1 || true
+    done
+    log_info "已收集容器日志"
+  fi
+  
+  if [[ -f "${ENV_FILE}" ]]; then
+    grep -v -E "PASSWORD|SECRET|KEY" "${ENV_FILE}" > "${tmp_dir}/config/env.sanitized" 2>/dev/null || true
+    log_info "已收集环境配置（已脱敏）"
+  fi
+  
+  if [[ -f "${COMPOSE_FILE}" ]]; then
+    cp "${COMPOSE_FILE}" "${tmp_dir}/config/docker-compose.yml" 2>/dev/null || true
+    log_info "已收集 Compose 配置"
+  fi
+  
+  {
+    echo "=== 系统信息 ==="
+    uname -a
+    echo ""
+    echo "=== 发行版信息 ==="
+    cat /etc/os-release 2>/dev/null || echo "未知"
+    echo ""
+    echo "=== Docker 版本 ==="
+    docker --version 2>&1 || echo "Docker 未安装"
+    echo ""
+    echo "=== Docker Compose 版本 ==="
+    docker compose version 2>&1 || docker-compose --version 2>&1 || echo "Docker Compose 未安装"
+    echo ""
+    echo "=== 内存信息 ==="
+    free -h 2>/dev/null || echo "无法获取"
+    echo ""
+    echo "=== 磁盘信息 ==="
+    df -h 2>/dev/null || echo "无法获取"
+    echo ""
+    echo "=== 网络信息 ==="
+    ip addr show 2>/dev/null || ifconfig 2>/dev/null || echo "无法获取"
+  } > "${tmp_dir}/system/system-info.txt"
+  log_info "已收集系统信息"
+  
+  if is_stack_running; then
+    docker ps -a > "${tmp_dir}/system/docker-ps.txt" 2>&1 || true
+    docker images > "${tmp_dir}/system/docker-images.txt" 2>&1 || true
+    docker network ls > "${tmp_dir}/system/docker-networks.txt" 2>&1 || true
+    log_info "已收集 Docker 状态"
+  fi
+  
+  tar -czf "${export_file}" -C "${tmp_dir}" . 2>/dev/null || {
+    log_error "打包日志失败"
+    rm -rf "${tmp_dir}"
+    return 1
+  }
+  
+  rm -rf "${tmp_dir}"
+  
+  log_success "诊断日志已导出到: ${export_file}"
+  log_info "请将此文件发送给技术支持以获取帮助"
+  log_info "GitHub Issues: https://github.com/${CAPDF_REMOTE_REPO}/issues"
 }
 
 command_uninstall() {
@@ -1170,8 +1356,9 @@ show_menu() {
 [9] 恢复备份
 [10] 配置管理
 [11] 健康检查
-[12] 自更新
-[13] 卸载
+[12] 导出诊断日志
+[13] 自更新
+[14] 卸载
 [0] 退出
 MENU
     read -r -p "请选择操作: " choice || true
@@ -1216,10 +1403,13 @@ MENU
         command_doctor
         ;;
       12)
+        command_export_logs
+        ;;
+      13)
         read -r -p "更新频道（默认: ${CAPDF_CHANNEL}）: " new_channel || true
         command_self_update "${new_channel}"
         ;;
-      13)
+      14)
         command_uninstall
         ;;
       0)
@@ -1248,11 +1438,22 @@ print_help() {
   backup            创建备份归档
   restore [file]    还原备份
   config            查看或重新配置环境
-  doctor            运行健康检查
+  doctor            运行完整系统诊断
+  export-logs       导出诊断日志供技术支持使用
   self-update [ch]  从指定分支/频道更新脚本
   uninstall         卸载并停止服务
   menu              打开交互式菜单
   help              显示帮助信息
+
+示例：
+  capdf install              # 首次安装
+  capdf up                   # 启动服务
+  capdf doctor               # 健康检查
+  capdf logs backend         # 查看后端日志
+  capdf backup               # 创建备份
+  capdf export-logs          # 导出诊断日志
+
+更多帮助：https://github.com/QAQ-AWA/ca-pdf
 USAGE
 }
 
@@ -1292,6 +1493,9 @@ main() {
       ;;
     doctor)
       command_doctor "$@"
+      ;;
+    export-logs)
+      command_export_logs "$@"
       ;;
     self-update)
       command_self_update "$@"
