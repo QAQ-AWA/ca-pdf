@@ -88,11 +88,14 @@ RUN ${VIRTUAL_ENV}/bin/pip install --no-cache-dir --no-index --find-links=/tmp/w
 
 COPY backend/app ./app
 COPY backend/alembic.ini ./alembic.ini
+COPY backend/scripts/prestart.sh ./scripts/prestart.sh
 
-RUN chown -R ${APP_USER}:${APP_GROUP} ${APP_HOME}
+RUN chown -R ${APP_USER}:${APP_GROUP} ${APP_HOME} \
+    && chmod +x ./scripts/prestart.sh
 USER ${APP_USER}
 
 EXPOSE 8000
 HEALTHCHECK --start-period=40s --interval=30s --timeout=10s --retries=3 CMD curl -f "http://127.0.0.1:${APP_PORT}/health" || exit 1
 
-CMD ["sh", "-c", "gunicorn app.main:app --worker-class uvicorn.workers.UvicornWorker --workers ${WEB_CONCURRENCY:-2} --bind ${APP_HOST}:${APP_PORT}"]
+ENTRYPOINT ["./scripts/prestart.sh"]
+CMD ["gunicorn"]

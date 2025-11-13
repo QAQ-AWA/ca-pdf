@@ -448,6 +448,17 @@ psql -h localhost -U app_user -d app_db -c "SELECT version();"
 
 ### 运行 Alembic 迁移
 
+> ♻️ **容器自动迁移**：从 2024 年 11 月起，后端容器启动会自动运行 `backend/scripts/prestart.sh`，按顺序执行以下操作：
+> - 指数退避轮询数据库连接（初始 1 秒，最大 30 次重试）；
+> - 最多 3 次重试执行 `alembic upgrade head`，避免偶发网络或锁冲突；
+> - 迁移成功后才会启动 Gunicorn 服务，确保服务始终运行在最新 schema 上。
+>
+> 若自动迁移失败，容器会直接退出并在日志中给出详尽提示，可通过 `docker compose logs backend` 查看原因。
+
+#### 手动执行（开发 / 调试）
+
+本地开发或紧急排查时仍可手动执行迁移命令：
+
 ```bash
 cd backend
 

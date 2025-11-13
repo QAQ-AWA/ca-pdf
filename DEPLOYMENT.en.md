@@ -449,6 +449,17 @@ psql -h localhost -U app_user -d app_db -c "SELECT version();"
 
 ### Run Alembic Migrations
 
+> ♻️ **Automated Container Migrations**: As of November 2024, backend containers automatically execute `backend/scripts/prestart.sh` on startup, performing:
+> - Database connection polling with exponential backoff (initial 1s, max 30 retries)
+> - Up to 3 retry attempts for `alembic upgrade head` to handle transient network or locking issues
+> - Gunicorn only starts after successful migration, ensuring service runs on the latest schema
+>
+> If automated migration fails, the container exits immediately with detailed logs accessible via `docker compose logs backend`.
+
+#### Manual Execution (Development / Debugging)
+
+For local development or troubleshooting, you can still run migrations manually:
+
 ```bash
 cd backend
 
