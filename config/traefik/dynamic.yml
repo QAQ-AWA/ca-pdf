@@ -42,7 +42,7 @@ http:
         servers:
           - url: "http://backend:8000"
         healthCheck:
-          path: "/health"
+          path: "/ping"
           interval: "30s"
           timeout: "10s"
     

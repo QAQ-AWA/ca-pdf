@@ -39,4 +39,4 @@ COPY frontend/nginx.conf /etc/nginx/conf.d/default.conf
 COPY --from=builder /app/dist /usr/share/nginx/html
 
 EXPOSE 8080
-HEALTHCHECK --start-period=20s --interval=30s --timeout=5s --retries=3 CMD wget --spider -q http://127.0.0.1:8080/healthz || exit 1
+HEALTHCHECK --start-period=30s --interval=30s --timeout=10s --retries=3 CMD wget --spider -q http://127.0.0.1:8080/healthz || exit 1
