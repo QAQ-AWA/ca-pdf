@@ -672,16 +672,16 @@ http:
         healthCheck:
           path: "/health"
           interval: "30s"
-          timeout: "5s"
+          timeout: "10s"
     
     frontend:
       loadBalancer:
         servers:
           - url: "http://frontend:8080"
         healthCheck:
-          path: "/"
+          path: "/healthz"
           interval: "30s"
-          timeout: "5s"
+          timeout: "10s"
   
   middlewares:
     redirect-to-https:
@@ -745,16 +745,16 @@ http:
         healthCheck:
           path: "/health"
           interval: "30s"
-          timeout: "5s"
+          timeout: "10s"
     
     frontend:
       loadBalancer:
         servers:
           - url: "http://frontend:8080"
         healthCheck:
-          path: "/"
+          path: "/healthz"
           interval: "30s"
-          timeout: "5s"
+          timeout: "10s"
   
   middlewares:
     redirect-to-https:
@@ -846,6 +846,12 @@ ${TRAEFIK_COMMAND}    ports:
     networks:
       - internal
       - edge
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
 ${backend_labels_section}
 
   frontend:
@@ -863,6 +869,12 @@ ${backend_labels_section}
         condition: service_healthy
     networks:
       - edge
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.1:8080/healthz"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
 ${frontend_labels_section}
 
 networks:

@@ -510,6 +510,99 @@ ca-pdf 故障排查总览
   - 若镜像拉取失败，检查网络或私有仓库凭证。
   - 对于持续重启的容器，排查健康检查与依赖启动顺序。
 
+### 9.2.1 容器健康检查失败（unhealthy）
+
+**症状**：容器状态显示为 `unhealthy`，服务无法通过 Traefik 反向代理访问。
+
+#### Traefik 容器 unhealthy
+- **常见错误日志**：
+  ```
+  WRN Health check failed. error="HTTP request failed: Get \"http://frontend:8080/\": dial tcp: lookup frontend on 127.0.0.11:53: server misbehaving"
+  WRN Health check failed. error="HTTP request failed: Get \"http://backend:8000/health\": context deadline exceeded"
+  ```
+- **原因分析**：
+  1. DNS 解析问题：Docker 内置 DNS（127.0.0.11）无法解析服务名称。
+  2. 健康检查超时：服务启动慢或响应时间超过配置的超时时间（默认 5-10s）。
+  3. 网络分区：容器间网络通信问题。
+  4. 健康检查路径错误：前端使用 `/` 而不是 `/healthz`。
+- **排查步骤**：
+  1. 查看 Traefik 日志：`docker compose logs traefik | grep -i health`
+  2. 测试 Traefik 自身健康：`curl http://localhost/ping`（应返回 200）
+  3. 检查 Docker 网络：`docker network ls` 和 `docker network inspect ca-pdf_edge`
+  4. 验证服务间 DNS：`docker compose exec traefik nslookup backend` 和 `nslookup frontend`
+  5. 检查动态配置文件：`cat config/traefik/dynamic.yml`
+- **解决方案**：
+  1. **修复前端健康检查路径**：
+     - 编辑 `config/traefik/dynamic.yml`
+     - 将 frontend 的 `healthCheck.path` 从 `"/"` 改为 `"/healthz"`
+     - 重启：`docker compose restart traefik`
+  2. **增加健康检查超时时间**：
+     - 编辑 `config/traefik/dynamic.yml`
+     - 将 backend/frontend 的 `healthCheck.timeout` 从 `"5s"` 改为 `"10s"`
+  3. **等待足够的启动时间**：
+     - backend 的 `start_period` 为 40s，frontend 为 30s
+     - 初次启动时 Docker 会拉取镜像、构建容器，需要更长时间
+  4. **检查网络配置**：
+     - 确保所有服务都连接到正确的 Docker 网络（`edge` 和/或 `internal`）
+     - 重建网络：`docker compose down && docker compose up -d`
+
+#### 后端容器 unhealthy
+- **排查步骤**：
+  1. 直接测试健康检查：`docker compose exec backend curl -v http://127.0.0.1:8000/health`
+  2. 检查数据库连接：`docker compose exec backend env | grep DATABASE_URL`
+  3. 查看后端日志：`docker compose logs backend --tail 100`
+  4. 检查启动时间：后端依赖数据库，确保 db 服务 `healthy` 后 backend 才启动
+- **解决方案**：
+  1. 增加 `start_period`（已设置为 40s）
+  2. 检查 `WEB_CONCURRENCY` 是否过高导致资源不足
+  3. 验证 `/health` 端点实现正常（当前为简单响应，无数据库查询）
+  4. 确保 curl 工具在容器中可用（backend Dockerfile 已安装）
+
+#### 前端容器 unhealthy
+- **排查步骤**：
+  1. 直接测试健康检查：`docker compose exec frontend wget --spider -q http://127.0.0.1:8080/healthz && echo "OK" || echo "FAIL"`
+  2. 检查 nginx 配置：`docker compose exec frontend cat /etc/nginx/conf.d/default.conf`
+  3. 验证端口监听：`docker compose exec frontend netstat -tlnp | grep 8080`
+  4. 查看前端日志：`docker compose logs frontend --tail 100`
+- **解决方案**：
+  1. 确认 nginx 正确配置了 `/healthz` 端点（已在 `frontend/nginx.conf` 中定义）
+  2. 确保 wget 工具在容器中可用（frontend Dockerfile 基于 nginx:alpine，已内置）
+  3. 检查构建日志是否有错误：`docker compose logs frontend | grep -i error`
+
+#### Traefik 负载均衡健康检查配置
+Traefik 的动态配置文件 `config/traefik/dynamic.yml` 定义了后端服务健康检查：
+
+```yaml
+services:
+  backend:
+    loadBalancer:
+      servers:
+        - url: "http://backend:8000"
+      healthCheck:
+        path: "/health"          # 后端健康检查路径
+        interval: "30s"          # 每 30 秒检查一次
+        timeout: "10s"           # 超时时间 10 秒（已从 5s 增加）
+  
+  frontend:
+    loadBalancer:
+      servers:
+        - url: "http://frontend:8080"
+      healthCheck:
+        path: "/healthz"         # 前端健康检查路径（已从 / 修复）
+        interval: "30s"
+        timeout: "10s"
+```
+
+**注意**：Traefik 的健康检查与 Docker 的 HEALTHCHECK 是独立的：
+- **Docker HEALTHCHECK**：判断容器是否 healthy，影响 `depends_on` 启动顺序
+- **Traefik healthCheck**：判断负载均衡器是否将流量转发到该服务器
+
+#### 预防措施
+1. 部署前验证健康检查路径：`curl` 测试所有健康检查端点
+2. 监控容器状态：设置告警当容器变为 unhealthy
+3. 日志聚合：收集所有健康检查失败日志到中心化平台
+4. 文档更新：记录所有健康检查端点和超时配置
+
 ### 9.3 访问被拒绝（CORS 错误）
 - **典型症状**：浏览器控制台提示 `No 'Access-Control-Allow-Origin' header`。
 - **排查步骤**：
