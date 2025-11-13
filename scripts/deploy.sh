@@ -137,6 +137,11 @@ TRAEFIK_COMMAND=""
 BACKEND_LABELS=""
 FRONTEND_LABELS=""
 SHOULD_WRITE_COMPOSE="true"
+FORCE_CLEAN=0
+FORCE_REBUILD=0
+NO_CACHE=0
+FORCE_STOP=0
+SKIP_VALIDATION=0
 
 on_error() {
   local exit_code=$?
@@ -146,6 +151,8 @@ on_error() {
     log_warn "正在回滚 Docker 容器..."
     if command -v docker >/dev/null 2>&1; then
       ${COMPOSE_CMD} -f "${COMPOSE_FILE}" down --remove-orphans >/dev/null 2>&1 || true
+      log_info "清理部分构建的镜像..."
+      docker image prune -f --filter "dangling=true" >/dev/null 2>&1 || true
     fi
   fi
   log_error "请查看日志文件获取详情：${LOG_FILE}"
@@ -278,18 +285,56 @@ check_docker() {
 
 check_port() {
   local port="$1"
+  local force_stop="${2:-0}"
+  local port_in_use=0
+  local process_info=""
+  
   if command -v ss >/dev/null 2>&1; then
     if ss -ltn "sport = :${port}" 2>/dev/null | grep -q ":${port}"; then
-      log_error "端口 ${port} 已被占用，请释放后重试。"
-      exit 1
+      port_in_use=1
+      process_info=$(ss -ltnp "sport = :${port}" 2>/dev/null | grep ":${port}" | head -n1 || echo "未知进程")
     fi
   elif command -v lsof >/dev/null 2>&1; then
     if lsof -i "TCP:${port}" -sTCP:LISTEN -P -n >/dev/null 2>&1; then
-      log_error "端口 ${port} 已被占用，请释放后重试。"
-      exit 1
+      port_in_use=1
+      process_info=$(lsof -i "TCP:${port}" -sTCP:LISTEN -P -n 2>/dev/null | tail -n1 || echo "未知进程")
     fi
   else
     log_warn "无法检测端口 ${port} 是否占用（缺少 ss/lsof），请自行确认。"
+    return 0
+  fi
+  
+  if (( port_in_use )); then
+    log_warn "端口 ${port} 已被占用"
+    log_info "占用信息: ${process_info}"
+    
+    if (( force_stop )); then
+      log_info "尝试停止占用端口 ${port} 的 Docker 容器..."
+      local containers
+      containers=$(docker ps --format '{{.Names}}' --filter "publish=${port}" 2>/dev/null || true)
+      if [[ -n "${containers}" ]]; then
+        echo "${containers}" | while read -r container; do
+          log_info "停止容器: ${container}"
+          docker stop "${container}" >/dev/null 2>&1 || true
+        done
+        sleep 2
+        if command -v ss >/dev/null 2>&1; then
+          if ss -ltn "sport = :${port}" 2>/dev/null | grep -q ":${port}"; then
+            log_error "端口 ${port} 仍被占用，请手动释放后重试。"
+            exit 1
+          fi
+        fi
+        log_success "已停止占用端口 ${port} 的容器"
+      else
+        log_error "端口 ${port} 未被 Docker 容器占用，无法自动停止。请手动释放。"
+        log_info "提示: lsof -i :${port} 查看占用进程"
+        exit 1
+      fi
+    else
+      log_error "端口 ${port} 已被占用，请释放后重试。"
+      log_info "提示: 使用 --force-stop 参数可自动停止占用端口的容器"
+      exit 1
+    fi
   fi
 }
 
@@ -322,6 +367,68 @@ check_resources() {
     fi
   else
     log_warn "无法检测磁盘空间（缺少 df 命令）。"
+  fi
+}
+
+clean_old_data() {
+  local force="${1:-0}"
+  local should_clean=0
+  
+  detect_docker_compose
+  
+  local has_existing=0
+  if [[ -f "${COMPOSE_FILE}" ]] && is_stack_running; then
+    has_existing=1
+  fi
+  
+  local data_path="${DB_DATA_PATH:-${PROJECT_ROOT}/data/postgres}"
+  if [[ -d "${data_path}" && -n "$(ls -A "${data_path}" 2>/dev/null)" ]]; then
+    has_existing=1
+  fi
+  
+  if (( !has_existing )); then
+    return 0
+  fi
+  
+  if (( force )); then
+    should_clean=1
+    log_info "检测到 --force-clean 参数，将清理旧数据"
+  else
+    log_warn "检测到已存在的数据"
+    if [[ -f "${COMPOSE_FILE}" ]]; then
+      log_info "  - Docker Compose 配置和容器"
+    fi
+    if [[ -d "${data_path}" ]]; then
+      log_info "  - PostgreSQL 数据目录: ${data_path}"
+    fi
+    if prompt_confirm "是否清理旧数据并重新开始？" "n"; then
+      should_clean=1
+    fi
+  fi
+  
+  if (( should_clean )); then
+    log_step "清理旧数据"
+    
+    if [[ -f "${COMPOSE_FILE}" ]]; then
+      log_info "停止并删除容器和数据卷..."
+      ${COMPOSE_CMD} -f "${COMPOSE_FILE}" down -v --remove-orphans >/dev/null 2>&1 || true
+    fi
+    
+    if [[ -d "${data_path}" ]]; then
+      log_info "删除 PostgreSQL 数据目录..."
+      rm -rf "${data_path}"
+    fi
+    
+    local volumes
+    volumes=$(docker volume ls -q 2>/dev/null | grep -E "ca_pdf|ca-pdf" || true)
+    if [[ -n "${volumes}" ]]; then
+      log_info "删除相关 Docker 数据卷..."
+      echo "${volumes}" | xargs -r docker volume rm >/dev/null 2>&1 || true
+    fi
+    
+    log_success "旧数据清理完成"
+  else
+    log_info "保留现有数据"
   fi
 }
 
@@ -699,8 +806,52 @@ wait_for_service() {
 
 run_migrations() {
   log_step "执行数据库迁移"
-  ${COMPOSE_CMD} -f "${COMPOSE_FILE}" exec -T backend alembic upgrade head
+  if ! ${COMPOSE_CMD} -f "${COMPOSE_FILE}" exec -T backend alembic upgrade head; then
+    log_error "数据库迁移失败"
+    log_info "提示: 查看日志 capdf logs backend"
+    exit 1
+  fi
   log_success "数据库迁移完成"
+}
+
+validate_deployment() {
+  log_step "验证部署状态"
+  
+  local backend_url
+  backend_url=$(get_env_var "VITE_API_BASE_URL" "https://api.localtest.me")
+  
+  log_info "检查服务运行状态..."
+  local services_running=0
+  local expected_services=("traefik" "db" "backend" "frontend")
+  local running_services
+  running_services=$(${COMPOSE_CMD} -f "${COMPOSE_FILE}" ps --services --filter "status=running" 2>/dev/null || true)
+  
+  for service in "${expected_services[@]}"; do
+    if echo "${running_services}" | grep -q "^${service}$"; then
+      log_success "服务 ${service} 运行中"
+      services_running=$((services_running + 1))
+    else
+      log_warn "服务 ${service} 未运行"
+    fi
+  done
+  
+  if (( services_running < ${#expected_services[@]} )); then
+    log_warn "部分服务未启动（${services_running}/${#expected_services[@]}）"
+  else
+    log_success "所有服务运行正常（${services_running}/${#expected_services[@]}）"
+  fi
+  
+  log_info "验证后端 API..."
+  if command -v curl >/dev/null 2>&1; then
+    if curl -fsSL -k --max-time 10 "${backend_url}/health" >/dev/null 2>&1; then
+      log_success "后端 API 健康检查通过: ${backend_url}/health"
+    else
+      log_warn "无法访问后端 API: ${backend_url}/health"
+      log_info "这可能需要几分钟时间，请稍后使用 'capdf doctor' 检查"
+    fi
+  fi
+  
+  log_success "部署验证完成"
 }
 
 start_stack() {
@@ -711,7 +862,15 @@ start_stack() {
   export DOCKER_BUILDKIT=1
   DEPLOY_STARTED=1
   ${COMPOSE_CMD} -f "${COMPOSE_FILE}" pull --quiet traefik db >/dev/null 2>&1 || true
-  ${COMPOSE_CMD} -f "${COMPOSE_FILE}" up -d --build
+  
+  local build_args=""
+  if (( NO_CACHE )) || (( FORCE_REBUILD )); then
+    log_info "使用 --no-cache 构建镜像（忽略缓存）"
+    build_args="--no-cache"
+  fi
+  
+  ${COMPOSE_CMD} -f "${COMPOSE_FILE}" up -d --build ${build_args}
+  
   if ! wait_for_service "db" 180; then
     log_error "PostgreSQL 服务启动失败，请执行 \"${COMPOSE_CMD} -f ${COMPOSE_FILE} logs db\" 排查。"
     exit 1
@@ -724,6 +883,11 @@ start_stack() {
   if ! wait_for_service "backend" 120; then
     log_warn "迁移后后端健康检查仍未恢复，请查看日志确认。"
   fi
+  
+  if (( !SKIP_VALIDATION )); then
+    validate_deployment
+  fi
+  
   DEPLOY_STARTED=0
   popd >/dev/null
 }
@@ -837,11 +1001,38 @@ prepare_compose_file() {
 }
 
 command_install() {
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --force-clean)
+        FORCE_CLEAN=1
+        shift
+        ;;
+      --no-cache)
+        NO_CACHE=1
+        shift
+        ;;
+      --force-stop)
+        FORCE_STOP=1
+        shift
+        ;;
+      --skip-validation)
+        SKIP_VALIDATION=1
+        shift
+        ;;
+      *)
+        log_warn "未知参数: $1"
+        shift
+        ;;
+    esac
+  done
+
   log_step "环境预检查"
   check_os
   check_docker
-  check_port 80
-  check_port 443
+  check_port 80 "${FORCE_STOP}"
+  check_port 443 "${FORCE_STOP}"
+  check_port 5432 "${FORCE_STOP}"
+  check_port 8000 "${FORCE_STOP}"
   check_resources
 
   log_step "交互式配置"
@@ -851,6 +1042,8 @@ command_install() {
   prompt_db_path
   prompt_cors
   generate_passwords
+
+  clean_old_data "${FORCE_CLEAN}"
 
   ensure_dirs
   prepare_compose_file
@@ -1428,7 +1621,7 @@ print_help() {
 用法: capdf <命令> [参数]
 
 可用命令：
-  install           运行安装向导
+  install [选项]    运行安装向导
   up                启动服务
   down [--clean]    停止服务（--clean 同时清理数据卷）
   restart           重启服务
@@ -1445,13 +1638,34 @@ print_help() {
   menu              打开交互式菜单
   help              显示帮助信息
 
+install 命令选项：
+  --force-clean       强制清理旧数据卷和 PostgreSQL 数据目录
+  --no-cache          Docker 镜像构建时不使用缓存（强制重新构建）
+  --force-stop        自动停止占用端口 (80/443/5432/8000) 的 Docker 容器
+  --skip-validation   跳过部署后的验证步骤（不推荐）
+
 示例：
-  capdf install              # 首次安装
-  capdf up                   # 启动服务
-  capdf doctor               # 健康检查
-  capdf logs backend         # 查看后端日志
-  capdf backup               # 创建备份
-  capdf export-logs          # 导出诊断日志
+  capdf install                            # 首次安装
+  capdf install --force-clean              # 清理旧数据后重新安装
+  capdf install --no-cache                 # 强制重新构建镜像
+  capdf install --force-stop               # 自动停止冲突容器
+  capdf install --force-clean --no-cache   # 完全清理并重建
+  capdf up                                 # 启动服务
+  capdf doctor                             # 健康检查
+  capdf logs backend                       # 查看后端日志
+  capdf backup                             # 创建备份
+  capdf export-logs                        # 导出诊断日志
+
+部署流程（install 命令执行步骤）：
+  1. ✓ 环境预检查（操作系统、Docker、端口、资源）
+  2. ✓ 端口占用检查（80/443/5432/8000）
+  3. ✓ 交互式配置（域名、邮箱、数据库路径、CORS）
+  4. ✓ 旧数据清理提示（可选）
+  5. ✓ 生成配置文件（.env、docker-compose.yml）
+  6. ✓ Docker Compose 启动（支持缓存控制）
+  7. ✓ Alembic 数据库迁移验证
+  8. ✓ 服务健康检查验证
+  9. ✓ 部署失败自动回滚清理
 
 更多帮助：https://github.com/QAQ-AWA/ca-pdf
 USAGE
