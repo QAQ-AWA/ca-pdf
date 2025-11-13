@@ -23,6 +23,8 @@
 | [ARCHITECTURE.md](./ARCHITECTURE.md) | 架构师 / 高级开发者 | 系统设计、组件协作、技术栈矩阵 | 核心开发团队 |
 | [API.md](./API.md) | 集成开发者 | REST API 端点、示例、错误码 | 核心开发团队 |
 | [DEPLOYMENT.md](./DEPLOYMENT.md) | 运维 / 管理员 | 部署架构、环境变量、监控、备份 | 运维与安全团队 |
+| [DEPLOYMENT_VERIFICATION.md](./DEPLOYMENT_VERIFICATION.md) | 运维 / 管理员 | 自动化部署验证、健康检查 | 运维与安全团队 |
+| [DEPLOYMENT_CHECKLIST.md](./DEPLOYMENT_CHECKLIST.md) | 运维 / 管理员 | 部署检查清单、环境重置指南 | 运维与安全团队 |
 | [SECURITY.md](./SECURITY.md) | 安全负责人 | 密钥管理、安全策略、合规要求 | 运维与安全团队 |
 | [CONTRIBUTING.md](./CONTRIBUTING.md) | 贡献者 | 贡献流程、代码标准、评审指引 | 核心开发团队 |
 | [CHANGELOG.md](./CHANGELOG.md) | 维护者 | 版本演进记录、发布日期 | 项目维护者 |
@@ -67,6 +69,8 @@
   - [API.md](./API.md) — 端点列表、示例代码、错误码对照
 - **部署与运维**：
   - [DEPLOYMENT.md](./DEPLOYMENT.md) — 环境变量、部署策略、监控报警
+  - [DEPLOYMENT_VERIFICATION.md](./DEPLOYMENT_VERIFICATION.md) — 自动化验证、健康检查
+  - [DEPLOYMENT_CHECKLIST.md](./DEPLOYMENT_CHECKLIST.md) — 部署检查清单、环境重置
   - [SECURITY.md](./SECURITY.md) — 密钥管理、访问控制、合规建议
   - [TROUBLESHOOTING.md](./TROUBLESHOOTING.md) — 系统与业务故障快速定位
 - **项目治理**：
@@ -88,6 +92,7 @@
 - 若需从零部署，请直接前往 [DEPLOYMENT.md](./DEPLOYMENT.md) 的“部署流程”章节。
 - 集成第三方系统时，请结合 [API.md](./API.md) 与 [DEVELOPMENT.md](./DEVELOPMENT.md) 的示例。
 - 所有文档均可通过仓库根目录或 `poetry run mkdocs serve`（如使用 mkdocs）等方式浏览。
+- 部署后验证系统状态，请参考 [DEPLOYMENT_VERIFICATION.md](./DEPLOYMENT_VERIFICATION.md) 使用自动化验证脚本。
 
 ---
 

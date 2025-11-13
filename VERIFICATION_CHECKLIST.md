@@ -1,6 +1,104 @@
-# Traefik Routing Fix - Verification Checklist
+# ca-pdf Deployment Verification Checklist
 
-## Pre-Commit Verification
+> This document provides automated and manual verification procedures for ca-pdf deployments.
+
+---
+
+## 🤖 Automated Verification (Recommended)
+
+### Quick Start
+
+Use the automated verification script for fast and reliable deployment validation:
+
+```bash
+# Full verification (clean + deploy + validate)
+./scripts/verify_deploy.sh
+
+# Using Makefile
+make verify-deploy
+
+# CI mode (fully automated, no prompts)
+make verify-deploy-ci
+
+# Quick test of existing deployment
+make verify-deploy-quick
+```
+
+### Script Features
+
+- ✅ Automatic environment cleanup (optional)
+- ✅ Container health status monitoring
+- ✅ HTTP endpoint validation
+- ✅ Structured output with exit codes
+- ✅ CI/CD friendly (non-interactive mode)
+- ✅ Configurable timeouts and domains
+
+### Command Options
+
+```
+--force-clean         Auto-clean old data (no prompts)
+--skip-clean          Test existing deployment
+--ci-mode             Non-interactive for CI/CD
+--timeout SECONDS     Health check timeout (default: 600)
+--domain DOMAIN       Testing domain (default: localtest.me)
+--help                Show full help
+```
+
+### Verification Checklist
+
+The script verifies:
+
+1. ✅ **Container Health**: All 4 services (traefik, db, backend, frontend) report `healthy`
+2. ✅ **Traefik Ping**: `http://localhost:80/ping` returns HTTP 200
+3. ✅ **Backend Health**: `https://api.{domain}/health` returns HTTP 200
+4. ✅ **Frontend Health**: `https://app.{domain}/healthz` returns HTTP 200
+
+### Exit Codes
+
+- `0` - All checks passed
+- `1` - Environment setup failed
+- `2` - Deployment failed
+- `3` - Container health check failed
+- `4` - Endpoint validation failed
+- `5` - Cleanup failed
+
+### Usage Examples
+
+```bash
+# Development: Quick test after code changes
+./scripts/verify_deploy.sh --skip-clean --timeout 120
+
+# CI: Full clean deployment test
+./scripts/verify_deploy.sh --ci-mode --force-clean
+
+# Production: Custom domain validation
+./scripts/verify_deploy.sh --domain example.com --backend-sub api --frontend-sub www
+```
+
+### Interpreting Results
+
+**Success**:
+```
+✔ traefik: Healthy
+✔ db: Healthy
+✔ backend: Healthy
+✔ frontend: Healthy
+✔ All endpoint validations passed
+✔ Deployment verification completed successfully!
+```
+
+**Failure** - Check logs and run diagnostics:
+```bash
+docker compose logs [service]
+capdf doctor
+capdf export-logs
+```
+
+---
+
+## 📋 Manual Verification (Traefik Routing Fix)
+
+### Pre-Commit Verification
 
 ### Code Changes
 - [x] Modified `scripts/deploy.sh` - Added complete dynamic.yml generation

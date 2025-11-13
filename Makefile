@@ -3,7 +3,8 @@
 	lint lint-backend lint-frontend \
 	format format-backend format-frontend \
 	test test-backend test-frontend \
-	typecheck typecheck-backend typecheck-frontend
+	typecheck typecheck-backend typecheck-frontend \
+	verify-deploy verify-deploy-ci verify-deploy-quick
 
 install: install-backend install-frontend
 
@@ -52,3 +53,12 @@ typecheck-backend:
 
 typecheck-frontend:
 	cd frontend && npm run typecheck
+
+verify-deploy:
+	./scripts/verify_deploy.sh
+
+verify-deploy-ci:
+	./scripts/verify_deploy.sh --ci-mode --force-clean
+
+verify-deploy-quick:
+	./scripts/verify_deploy.sh --skip-clean --timeout 120

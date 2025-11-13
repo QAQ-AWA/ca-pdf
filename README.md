@@ -38,6 +38,8 @@ README 是 ca-pdf 的入口文档。请根据角色选择合适的阅读顺序�
 | [ARCHITECTURE.md](./ARCHITECTURE.md) | 架构师 | 系统设计、技术栈与组件交互 |
 | [API.md](./API.md) | 集成开发者 | REST API 端点参考与示例 |
 | [DEPLOYMENT.md](./DEPLOYMENT.md) | 运维 / 管理员 | 部署、环境变量与运维守则 |
+| [DEPLOYMENT_VERIFICATION.md](./DEPLOYMENT_VERIFICATION.md) | 运维 / 管理员 | 自动化部署验证与健康检查 |
+| [DEPLOYMENT_CHECKLIST.md](./DEPLOYMENT_CHECKLIST.md) | 运维 / 管理员 | 部署前中后检查清单与故障排查 |
 | [SECURITY.md](./SECURITY.md) | 安全负责人 | 密钥管理、安全策略与合规建议 |
 | [TROUBLESHOOTING.md](./TROUBLESHOOTING.md) | 全体读者 | 常见问题与故障处理指南 |
 | [CONTRIBUTING.md](./CONTRIBUTING.md) | 贡献者 | 贡献流程、代码标准与审核要求 |
@@ -119,6 +121,26 @@ capdf self-update # 拉取最新安装脚本
 ```
 
 如需离线部署或自定义镜像与配置，请参考下方手动步骤以及《DEPLOYMENT.md》。
+
+### 部署验证
+
+安装完成后，建议使用自动化验证脚本确认所有服务正常运行：
+
+```bash
+# 验证现有部署状态
+./scripts/verify_deploy.sh --skip-clean
+
+# 或使用 Makefile
+make verify-deploy-quick
+```
+
+验证脚本会检查：
+- ✅ 所有容器健康状态（traefik, db, backend, frontend）
+- ✅ Traefik ping 端点响应
+- ✅ 后端 API 健康检查
+- ✅ 前端健康检查
+
+详细使用指南请参阅 [DEPLOYMENT_VERIFICATION.md](./DEPLOYMENT_VERIFICATION.md)。
 
 ### 本地开发安装
 

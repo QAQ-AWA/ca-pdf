@@ -97,7 +97,64 @@ bash <(curl -fsSL https://raw.githubusercontent.com/QAQ-AWA/ca-pdf/main/scripts/
 
 ## ✅ 部署后验证清单
 
-### 1. 容器状态检查
+### 自动化验证（推荐）
+
+使用自动化验证脚本快速检查部署状态：
+
+```bash
+# 完整验证（包含清理和部署）
+./scripts/verify_deploy.sh
+
+# 或使用 Makefile
+make verify-deploy
+```
+
+**验证脚本选项**：
+- `--force-clean`: 自动清理旧数据卷和数据库
+- `--skip-clean`: 跳过清理，仅测试现有部署
+- `--ci-mode`: CI 模式，无交互，使用默认值
+- `--timeout SECONDS`: 健康检查超时时间（默认 600 秒）
+- `--domain DOMAIN`: 指定域名（默认 localtest.me）
+- `--skip-validation`: 跳过端点验证（不推荐）
+
+**常用验证场景**：
+
+```bash
+# CI 环境：完全自动化验证
+make verify-deploy-ci
+# 或
+./scripts/verify_deploy.sh --ci-mode --force-clean
+
+# 快速测试现有部署
+make verify-deploy-quick
+# 或
+./scripts/verify_deploy.sh --skip-clean --timeout 120
+
+# 生产环境验证（自定义域名）
+./scripts/verify_deploy.sh --domain example.com --frontend-sub www --backend-sub api
+```
+
+**验证脚本检查项**：
+1. ✅ 所有容器健康状态（traefik, db, backend, frontend）
+2. ✅ Traefik ping 端点（http://localhost/ping）
+3. ✅ 后端健康检查（https://api.{domain}/health）
+4. ✅ 前端健康检查（https://app.{domain}/healthz）
+
+**退出代码**：
+- `0` - 所有检查通过
+- `1` - 环境设置失败
+- `2` - 部署失败
+- `3` - 容器健康检查失败
+- `4` - 端点验证失败
+- `5` - 清理失败
+
+---
+
+### 手动验证步骤
+
+如果需要手动验证或自动化脚本失败，请按以下步骤操作：
+
+#### 1. 容器状态检查
 
 ```bash
 capdf status
@@ -210,6 +267,113 @@ capdf logs frontend | tail -20
 - [ ] 上传 PDF 文件
 - [ ] 签署 PDF 文件
 - [ ] 下载已签署 PDF
+
+---
+
+## 🔄 环境重置指南
+
+如需完全重置部署环境（清除所有数据），请按以下步骤操作：
+
+### 方法 1: 使用验证脚本自动重置
+
+```bash
+# 使用 --force-clean 标志自动清理
+./scripts/verify_deploy.sh --force-clean
+
+# 或仅清理不重新部署
+./scripts/verify_deploy.sh --force-clean --skip-validation
+```
+
+### 方法 2: 使用 capdf 命令
+
+```bash
+# 停止所有容器并删除卷
+capdf down -v
+
+# 删除 PostgreSQL 数据目录
+sudo rm -rf /opt/ca-pdf/data/postgres/
+
+# 重新安装
+capdf install --force-clean
+```
+
+### 方法 3: 使用 docker compose 直接操作
+
+```bash
+cd /path/to/ca-pdf
+
+# 停止并删除所有容器、网络和卷
+docker compose down -v --remove-orphans
+
+# 删除 PostgreSQL 数据目录（根据实际路径）
+rm -rf ./data/postgres/
+# 或
+sudo rm -rf /opt/ca-pdf/data/postgres/
+
+# 清理匹配的 Docker 卷
+docker volume ls | grep 'ca_pdf\|ca-pdf' | awk '{print $2}' | xargs -r docker volume rm
+
+# 清理悬空镜像
+docker image prune -f
+
+# 重新启动
+docker compose up -d --build
+```
+
+### 重置清单
+
+执行完全重置时，确保删除以下内容：
+
+- [ ] Docker 容器（`docker compose ps -a` 应无 ca-pdf 容器）
+- [ ] Docker 卷（`docker volume ls | grep ca` 应无结果）
+- [ ] PostgreSQL 数据目录（检查 `/opt/ca-pdf/data/postgres/` 或项目根目录下的 `data/postgres/`）
+- [ ] Traefik 证书数据（`/opt/ca-pdf/data/traefik/` 或 `traefik_letsencrypt` 卷）
+- [ ] 日志文件（可选，`/opt/ca-pdf/logs/`）
+- [ ] 备份文件（可选，`/opt/ca-pdf/backups/`）
+
+### 验证重置结果
+
+```bash
+# 检查容器
+docker compose ps
+
+# 检查卷
+docker volume ls | grep ca
+
+# 检查数据目录
+ls -la /opt/ca-pdf/data/ 2>/dev/null || echo "数据目录不存在（已清理）"
+
+# 检查端口占用
+ss -tlnp | grep -E ':(80|443|5432|8000)'
+```
+
+### 常见重置场景
+
+**场景 1: 测试新配置**
+```bash
+# 保留配置，仅重启容器
+docker compose restart
+```
+
+**场景 2: 更新代码后重新构建**
+```bash
+# 重新构建镜像，保留数据
+docker compose up -d --build --force-recreate
+```
+
+**场景 3: 数据库损坏或需要重新初始化**
+```bash
+# 仅清理数据库卷
+docker compose down
+docker volume rm ca_pdf_postgres_data
+docker compose up -d
+```
+
+**场景 4: 完全清除并重新开始**
+```bash
+# 使用自动化脚本
+./scripts/verify_deploy.sh --force-clean --ci-mode
+```
 
 ---
 
