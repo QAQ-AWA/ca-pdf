@@ -705,6 +705,104 @@ BACKEND_CORS_ORIGINS=["https://app.company.com"]
 docker compose exec backend env | grep -E "SECRET_KEY|ENCRYPTED"
 ```
 
+#### 5. 容器健康检查失败
+
+健康检查失败通常表现为容器状态为 `unhealthy` 或服务无法通过 Traefik 访问。
+
+##### Traefik 容器 unhealthy
+
+```bash
+# 查看 Traefik 日志
+capdf logs traefik
+
+# 检查 Traefik ping 端点
+curl http://localhost/ping
+
+# 验证动态配置文件
+cat config/traefik/dynamic.yml
+
+# 常见错误：
+# - "dial tcp: lookup frontend/backend on 127.0.0.11:53: server misbehaving"
+#   => DNS 解析问题，检查 Docker 网络配置
+# - "context deadline exceeded"
+#   => 健康检查超时，增加 timeout 或 start_period
+```
+
+##### 后端健康检查失败
+
+```bash
+# 直接测试后端健康检查端点
+docker compose exec backend curl -v http://127.0.0.1:8000/health
+
+# 检查数据库连接
+docker compose exec backend env | grep DATABASE_URL
+
+# 查看后端日志
+capdf logs backend
+
+# 常见原因：
+# - 数据库未就绪：增加 start_period（当前 40s）
+# - 应用启动慢：检查 WEB_CONCURRENCY 和资源限制
+# - 端点响应慢：优化 /health 端点（当前为简单响应）
+```
+
+##### 前端健康检查失败
+
+```bash
+# 直接测试前端健康检查端点
+docker compose exec frontend wget --spider -q http://127.0.0.1:8080/healthz && echo "OK" || echo "FAIL"
+
+# 检查 nginx 配置
+docker compose exec frontend cat /etc/nginx/conf.d/default.conf
+
+# 查看前端日志
+capdf logs frontend
+
+# 注意：
+# - 前端健康检查路径：/healthz（不是 /）
+# - nginx 监听端口：8080
+# - 健康检查超时：10s，start_period：30s
+```
+
+##### Traefik 负载均衡器健康检查配置
+
+Traefik 的动态配置文件中定义了服务健康检查：
+
+```yaml
+# config/traefik/dynamic.yml
+services:
+  backend:
+    loadBalancer:
+      servers:
+        - url: "http://backend:8000"
+      healthCheck:
+        path: "/health"        # 后端健康检查路径
+        interval: "30s"        # 每 30 秒检查一次
+        timeout: "10s"         # 超时 10 秒
+  
+  frontend:
+    loadBalancer:
+      servers:
+        - url: "http://frontend:8080"
+      healthCheck:
+        path: "/healthz"       # 前端健康检查路径（注意不是 /）
+        interval: "30s"
+        timeout: "10s"
+```
+
+如果需要修改健康检查配置：
+
+```bash
+# 1. 编辑 config/traefik/dynamic.yml
+vim config/traefik/dynamic.yml
+
+# 2. 重启 Traefik 服务
+docker compose restart traefik
+
+# 3. 验证配置生效
+docker compose logs traefik | grep -i health
+```
+
 ### 日志查看方法
 
 ```bash
