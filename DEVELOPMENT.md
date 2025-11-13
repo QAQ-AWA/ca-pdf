@@ -672,8 +672,8 @@ revision = "0001_initial"           # 8 字符
 revision = "0002_add_audit_logs"    # 17 字符
 revision = "0003_rename_cols"       # 17 字符
 
-# ✗ 错误 (>32 字符)
-revision = "0002_rename_audit_logs_metadata_to_meta"  # 45 字符 - 会被截断！
+# ✗ 错误 (>32 字符 - 实际: 38 字符)
+revision = "0002_rename_audit_logs_metadata_to_meta"  # 超过限制！正确版本: "0002_rename_audit_meta" (22字符)
 ```
 
 ### 服务层开发
