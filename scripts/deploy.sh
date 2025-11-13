@@ -142,17 +142,23 @@ FORCE_REBUILD=0
 NO_CACHE=0
 FORCE_STOP=0
 SKIP_VALIDATION=0
+NO_ROLLBACK=0
 
 on_error() {
   local exit_code=$?
   local line_no=${1:-unknown}
   log_error "部署失败（第 ${line_no} 行，退出码 ${exit_code}）。"
   if (( DEPLOY_STARTED )); then
-    log_warn "正在回滚 Docker 容器..."
-    if command -v docker >/dev/null 2>&1; then
-      ${COMPOSE_CMD} -f "${COMPOSE_FILE}" down --remove-orphans >/dev/null 2>&1 || true
-      log_info "清理部分构建的镜像..."
-      docker image prune -f --filter "dangling=true" >/dev/null 2>&1 || true
+    if (( NO_ROLLBACK )); then
+      log_warn "检测到 --no-rollback 标志，已禁用自动回滚（便于调试）。"
+      log_warn "可手动运行 'capdf down --clean' 清理资源。"
+    else
+      log_warn "正在回滚 Docker 容器..."
+      if command -v docker >/dev/null 2>&1; then
+        ${COMPOSE_CMD} -f "${COMPOSE_FILE}" down --remove-orphans >/dev/null 2>&1 || true
+        log_info "清理部分构建的镜像..."
+        docker image prune -f --filter "dangling=true" >/dev/null 2>&1 || true
+      fi
     fi
   fi
   log_error "请查看日志文件获取详情：${LOG_FILE}"
@@ -928,6 +934,67 @@ run_migrations() {
   log_success "数据库迁移完成"
 }
 
+validate_network_configuration() {
+  log_info "验证网络配置..."
+  
+  if [[ ! -f "${COMPOSE_FILE}" ]]; then
+    log_error "docker-compose.yml 不存在，无法验证网络配置"
+    return 1
+  fi
+  
+  local compose_output
+  if ! compose_output=$(${COMPOSE_CMD} -f "${COMPOSE_FILE}" config 2>&1); then
+    log_error "docker-compose.yml 语法验证失败"
+    log_error "${compose_output}"
+    return 1
+  fi
+  
+  log_info "检查网络定义..."
+  if ! echo "${compose_output}" | grep -q "name: .*_edge"; then
+    log_error "未找到 'edge' 网络定义"
+    return 1
+  fi
+  log_success "找到 'edge' 网络"
+  
+  if ! echo "${compose_output}" | grep -q "name: .*_internal"; then
+    log_error "未找到 'internal' 网络定义"
+    return 1
+  fi
+  log_success "找到 'internal' 网络"
+  
+  log_info "检查服务网络附件..."
+  local services_checked=0
+  local services_ok=0
+  
+  if echo "${compose_output}" | grep -A 5 "^\s*backend:" | grep -q "networks:"; then
+    services_ok=$((services_ok + 1))
+  fi
+  services_checked=$((services_checked + 1))
+  
+  if echo "${compose_output}" | grep -A 5 "^\s*frontend:" | grep -q "networks:"; then
+    services_ok=$((services_ok + 1))
+  fi
+  services_checked=$((services_checked + 1))
+  
+  if echo "${compose_output}" | grep -A 5 "^\s*db:" | grep -q "networks:"; then
+    services_ok=$((services_ok + 1))
+  fi
+  services_checked=$((services_checked + 1))
+  
+  if echo "${compose_output}" | grep -A 5 "^\s*traefik:" | grep -q "networks:"; then
+    services_ok=$((services_ok + 1))
+  fi
+  services_checked=$((services_checked + 1))
+  
+  if (( services_ok >= 3 )); then
+    log_success "服务网络配置正确（${services_ok}/${services_checked}）"
+    return 0
+  else
+    log_warn "某些服务的网络配置可能不完整（${services_ok}/${services_checked}）"
+    return 1
+  fi
+}
+
 validate_deployment() {
   log_step "验证部署状态"
   
@@ -975,6 +1042,13 @@ start_stack() {
   export COMPOSE_DOCKER_CLI_BUILD=1
   export DOCKER_BUILDKIT=1
   DEPLOY_STARTED=1
+  
+  log_step "验证生成的配置文件"
+  if ! validate_network_configuration; then
+    log_error "网络配置验证失败"
+    exit 1
+  fi
+  
   ${COMPOSE_CMD} -f "${COMPOSE_FILE}" pull --quiet traefik db >/dev/null 2>&1 || true
   
   local build_args=""
@@ -1131,6 +1205,10 @@ command_install() {
         ;;
       --skip-validation)
         SKIP_VALIDATION=1
+        shift
+        ;;
+      --no-rollback)
+        NO_ROLLBACK=1
         shift
         ;;
       *)
@@ -1757,12 +1835,14 @@ install 命令选项：
   --no-cache          Docker 镜像构建时不使用缓存（强制重新构建）
   --force-stop        自动停止占用端口 (80/443/5432/8000) 的 Docker 容器
   --skip-validation   跳过部署后的验证步骤（不推荐）
+  --no-rollback       部署失败时禁用自动回滚，便于调试（需手动清理）
 
 示例：
   capdf install                            # 首次安装
   capdf install --force-clean              # 清理旧数据后重新安装
   capdf install --no-cache                 # 强制重新构建镜像
   capdf install --force-stop               # 自动停止冲突容器
+  capdf install --no-rollback              # 禁用自动回滚便于调试
   capdf install --force-clean --no-cache   # 完全清理并重建
   capdf up                                 # 启动服务
   capdf doctor                             # 健康检查
@@ -1775,11 +1855,12 @@ install 命令选项：
   2. ✓ 端口占用检查（80/443/5432/8000）
   3. ✓ 交互式配置（域名、邮箱、数据库路径、CORS）
   4. ✓ 旧数据清理提示（可选）
-  5. ✓ 生成配置文件（.env、docker-compose.yml）
-  6. ✓ Docker Compose 启动（支持缓存控制）
-  7. ✓ Alembic 数据库迁移验证
-  8. ✓ 服务健康检查验证
-  9. ✓ 部署失败自动回滚清理
+  5. ✓ 生成配置文件（.env、docker-compose.yml、Traefik 配置）
+  6. ✓ 网络配置验证（检查 edge/internal 网络和服务附件）
+  7. ✓ Docker Compose 启动（支持缓存控制）
+  8. ✓ Alembic 数据库迁移验证
+  9. ✓ 服务健康检查验证
+  10. ✓ 部署失败自动回滚清理（可用 --no-rollback 禁用）
 
 更多帮助：https://github.com/QAQ-AWA/ca-pdf
 USAGE
