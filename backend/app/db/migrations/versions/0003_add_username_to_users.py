@@ -6,7 +6,7 @@ import sqlalchemy as sa
 from alembic import op
 
 revision = "0003_add_username_to_users"
-down_revision = "0002_rename_audit_logs_metadata_to_meta"
+down_revision = "0002_rename_audit_meta"
 branch_labels = None
 depends_on = None
 
