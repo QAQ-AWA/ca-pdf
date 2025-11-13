@@ -67,8 +67,10 @@ LABEL org.opencontainers.image.title="backend" \
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         curl \
+        file \
         libffi8 \
         libjpeg62-turbo \
+        libmagic1 \
         libpq5 \
         libssl3 \
     && rm -rf /var/lib/apt/lists/* \
