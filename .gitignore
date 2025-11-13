@@ -46,3 +46,11 @@ backend/.coverage
 # Editors
 .vscode/
 .idea/
+
+# MkDocs
+site/
+
+# Backups and temp files
+backups/
+logs/
+*.tmp

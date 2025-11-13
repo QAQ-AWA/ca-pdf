@@ -772,6 +772,21 @@ EOF
 
 write_compose_file() {
   build_traefik_assets
+  
+  # Build backend labels section conditionally
+  local backend_labels_section=""
+  if [[ -n "${BACKEND_LABELS}" ]]; then
+    backend_labels_section="    labels:
+${BACKEND_LABELS}"
+  fi
+  
+  # Build frontend labels section conditionally
+  local frontend_labels_section=""
+  if [[ -n "${FRONTEND_LABELS}" ]]; then
+    frontend_labels_section="    labels:
+${FRONTEND_LABELS}"
+  fi
+  
   cat >"${COMPOSE_FILE}" <<EOF
 services:
   traefik:
@@ -831,8 +846,7 @@ ${TRAEFIK_COMMAND}    ports:
     networks:
       - internal
       - edge
-    labels:
-${BACKEND_LABELS}
+${backend_labels_section}
 
   frontend:
     build:
@@ -849,8 +863,7 @@ ${BACKEND_LABELS}
         condition: service_healthy
     networks:
       - edge
-    labels:
-${FRONTEND_LABELS}
+${frontend_labels_section}
 
 networks:
   internal:
