@@ -825,31 +825,116 @@ Returns CSV file as attachment.
 
 ## System Module
 
-### 1. GET /health
+### 1. GET /ping
 
-Health check endpoint (no authentication required).
+Minimal ping endpoint for load balancer health checks.
+
+**Authentication Required**: None
 
 **Request Example**
 
 ```bash
-curl -X GET http://localhost:8000/api/v1/health
+curl -X GET http://localhost:8000/ping
 ```
 
 **Success Response (200 OK)**
 
 ```json
 {
-  "status": "healthy",
-  "version": "1.0.0",
-  "timestamp": "2024-01-15T10:30:00Z",
-  "database": "connected",
-  "services": {
-    "ca": "operational",
-    "pdf": "operational",
-    "storage": "operational"
-  }
+  "status": "pong",
+  "service": "ca-pdf"
 }
 ```
+
+**Features**
+- Response time < 50ms
+- No database dependency
+- Ideal for load balancer health checks
+
+---
+
+### 2. GET /health
+
+Basic system health check endpoint.
+
+**Authentication Required**: None
+
+**Request Example**
+
+```bash
+curl -X GET http://localhost:8000/health
+```
+
+**Success Response (200 OK)**
+
+```json
+{
+  "status": "ok",
+  "service": "ca-pdf"
+}
+```
+
+**Error Response (503 Service Unavailable)**
+
+```json
+{
+  "detail": "Service unavailable"
+}
+```
+
+**Features**
+- Response time < 100ms
+- Exception handling to prevent hangs
+- No database dependency
+
+---
+
+### 3. GET /health/db
+
+Database connectivity health check endpoint.
+
+**Authentication Required**: None
+
+**Request Example**
+
+```bash
+curl -X GET http://localhost:8000/health/db
+```
+
+**Success Response (200 OK)**
+
+```json
+{
+  "status": "ok",
+  "service": "ca-pdf",
+  "database": "connected",
+  "timestamp": "2024-01-15T10:30:00Z"
+}
+```
+
+**Error Response (503 Service Unavailable)**
+
+Database connection failure:
+
+```json
+{
+  "detail": "Database connectivity failed"
+}
+```
+
+Other errors:
+
+```json
+{
+  "detail": "Database health check failed"
+}
+```
+
+**Features**
+- Response time < 500ms (success) or < 100ms (failure)
+- Real-time database connection test
+- Includes timestamp information
+- Fast failure mechanism to avoid long waits
 
 ---
 

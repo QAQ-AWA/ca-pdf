@@ -93,6 +93,6 @@ RUN chown -R ${APP_USER}:${APP_GROUP} ${APP_HOME}
 USER ${APP_USER}
 
 EXPOSE 8000
-HEALTHCHECK --start-period=30s --interval=30s --timeout=5s --retries=3 CMD curl -f "http://127.0.0.1:${APP_PORT}/health" || exit 1
+HEALTHCHECK --start-period=40s --interval=30s --timeout=10s --retries=3 CMD curl -f "http://127.0.0.1:${APP_PORT}/health" || exit 1
 
 CMD ["sh", "-c", "gunicorn app.main:app --worker-class uvicorn.workers.UvicornWorker --workers ${WEB_CONCURRENCY:-2} --bind ${APP_HOST}:${APP_PORT}"]

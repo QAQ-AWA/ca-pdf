@@ -117,6 +117,45 @@ jobs:
         working-directory: backend
         run: poetry run pytest -q --cov=app --cov-report=xml --cov-report=term
 
+      - name: Build frontend for health check validation
+        working-directory: frontend
+        run: |
+          npm ci
+          npm run build
+
+      - name: Validate frontend health endpoint
+        run: |
+          # Start nginx with the built frontend
+          docker run -d --name frontend-test -p 8080:8080 \
+            -v $(pwd)/frontend/dist:/usr/share/nginx/html:ro \
+            -v $(pwd)/frontend/nginx.conf:/etc/nginx/conf.d/default.conf:ro \
+            nginx:1.27.2-alpine
+          
+          # Wait for nginx to start
+          sleep 5
+          
+          # Test the health endpoint
+          if ! curl -f -s http://127.0.0.1:8080/healthz; then
+            echo "Frontend health check failed"
+            docker logs frontend-test
+            docker stop frontend-test
+            docker rm frontend-test
+            exit 1
+          fi
+          
+          # Verify response content
+          response=$(curl -s http://127.0.0.1:8080/healthz)
+          if [ "$response" != "ok" ]; then
+            echo "Frontend health check returned unexpected response: $response"
+            docker stop frontend-test
+            docker rm frontend-test
+            exit 1
+          fi
+          
+          echo "Frontend health check validation passed"
+          docker stop frontend-test
+          docker rm frontend-test
+
       - name: Upload backend coverage report
         if: always()
         uses: actions/upload-artifact@v4

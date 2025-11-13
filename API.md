@@ -1215,9 +1215,37 @@ curl -X GET 'http://localhost:8000/api/v1/audit/logs?limit=50&event_type=user_cr
 
 ## 系统模块
 
-### 1. GET /health
+### 1. GET /ping
 
-系统健康检查端点。
+最小化 ping 端点，用于负载均衡器健康检查。
+
+**认证要求**: 无
+
+**请求示例**
+
+```bash
+curl -X GET http://localhost:8000/ping
+```
+
+**成功响应 (200 OK)**
+
+```json
+{
+  "status": "pong",
+  "service": "ca-pdf"
+}
+```
+
+**特性**
+- 响应时间 < 50ms
+- 不依赖数据库连接
+- 适用于负载均衡器健康检查
+
+---
+
+### 2. GET /health
+
+基础系统健康检查端点。
 
 **认证要求**: 无
 
@@ -1235,6 +1263,68 @@ curl -X GET http://localhost:8000/health
   "service": "ca-pdf"
 }
 ```
+
+**错误响应 (503 Service Unavailable)**
+
+```json
+{
+  "detail": "Service unavailable"
+}
+```
+
+**特性**
+- 响应时间 < 100ms
+- 包含异常处理，防止服务挂起
+- 不依赖数据库连接
+
+---
+
+### 3. GET /health/db
+
+数据库连接健康检查端点。
+
+**认证要求**: 无
+
+**请求示例**
+
+```bash
+curl -X GET http://localhost:8000/health/db
+```
+
+**成功响应 (200 OK)**
+
+```json
+{
+  "status": "ok",
+  "service": "ca-pdf",
+  "database": "connected",
+  "timestamp": "2024-01-15T10:30:00Z"
+}
+```
+
+**错误响应 (503 Service Unavailable)**
+
+数据库连接失败：
+
+```json
+{
+  "detail": "Database connectivity failed"
+}
+```
+
+其他错误：
+
+```json
+{
+  "detail": "Database health check failed"
+}
+```
+
+**特性**
+- 响应时间 < 500ms（成功）或 < 100ms（失败）
+- 实时测试数据库连接
+- 包含时间戳信息
+- 快速失败机制，避免长时间等待
 
 ---
 
