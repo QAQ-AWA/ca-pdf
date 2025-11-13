@@ -49,7 +49,7 @@ http:
     frontend:
       loadBalancer:
         servers:
-          - url: "http://frontend:8080"
+          - url: "http://frontend:80"
         healthCheck:
           path: "/healthz"
           interval: "30s"

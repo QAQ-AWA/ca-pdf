@@ -82,7 +82,7 @@ services:
       args:
         COMMIT_SHA: ${COMMIT_SHA:-local}
         BUILD_VERSION: ${BUILD_VERSION:-dev}
-        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-https://api.localtest.me}
+        VITE_API_BASE_URL: /api
         VITE_APP_NAME: ${VITE_APP_NAME:-Monorepo UI}
         VITE_PUBLIC_BASE_URL: ${VITE_PUBLIC_BASE_URL:-https://app.localtest.me}
     depends_on:
@@ -91,7 +91,7 @@ services:
     networks:
       - edge
     healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.1:8080/healthz"]
+      test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.1/healthz"]
       interval: 30s
       timeout: 10s
       retries: 3

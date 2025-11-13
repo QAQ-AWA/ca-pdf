@@ -142,7 +142,7 @@ ${backend_labels_section}
       args:
         COMMIT_SHA: \${COMMIT_SHA:-local}
         BUILD_VERSION: \${BUILD_VERSION:-deploy}
-        VITE_API_BASE_URL: ${BACKEND_URL}
+        VITE_API_BASE_URL: /api
         VITE_APP_NAME: ca-pdf
         VITE_PUBLIC_BASE_URL: ${FRONTEND_URL}
     depends_on:
@@ -151,7 +151,7 @@ ${backend_labels_section}
     networks:
       - edge
     healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.1:8080/healthz"]
+      test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.1/healthz"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -273,7 +273,7 @@ http:
     frontend:
       loadBalancer:
         servers:
-          - url: "http://frontend:8080"
+          - url: "http://frontend:80"
         healthCheck:
           path: "/healthz"
           interval: "30s"
@@ -394,7 +394,7 @@ http:
     frontend:
       loadBalancer:
         servers:
-          - url: "http://frontend:8080"
+          - url: "http://frontend:80"
         healthCheck:
           path: "/healthz"
           interval: "30s"
