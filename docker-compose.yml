@@ -1,38 +1,4 @@
 services:
-  traefik:
-    image: traefik:v3.1
-    command:
-      - --providers.docker=true
-      - --providers.docker.exposedbydefault=false
-      - --providers.file.directory=/etc/traefik/dynamic
-      - --entrypoints.web.address=:80
-      - --entrypoints.websecure.address=:443
-      - --certificatesresolvers.le.acme.email=${TRAEFIK_ACME_EMAIL:-dev@example.com}
-      - --certificatesresolvers.le.acme.storage=/letsencrypt/acme.json
-      - --certificatesresolvers.le.acme.httpchallenge.entrypoint=web
-      - --certificatesresolvers.le.acme.caserver=${TRAEFIK_ACME_CA_SERVER:-https://acme-staging-v02.api.letsencrypt.org/directory}
-      - --log.level=${TRAEFIK_LOG_LEVEL:-INFO}
-      - --ping=true
-      - --ping.entrypoint=web
-    ports:
-      - "${TRAEFIK_HTTP_PORT:-80}:80"
-      - "${TRAEFIK_HTTPS_PORT:-443}:443"
-    volumes:
-      - traefik_letsencrypt:/letsencrypt
-      - ./config/traefik:/etc/traefik/dynamic:ro
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-    networks:
-      - edge
-    labels:
-      - traefik.http.middlewares.redirect-to-https.redirectscheme.scheme=https
-      - traefik.http.middlewares.redirect-to-https.redirectscheme.permanent=true
-    healthcheck:
-      test: ["CMD", "traefik", "healthcheck", "--ping"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
-      start_period: 30s
-
   db:
     image: postgres:16
     environment:
@@ -44,7 +10,7 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     networks:
-      - internal
+      - default
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 10s
@@ -66,8 +32,7 @@ services:
       - .env
       - .env.docker
     networks:
-      - internal
-      - edge
+      - default
     healthcheck:
       test: ["CMD", "curl", "-f", "http://127.0.0.1:8000/health"]
       interval: 30s
@@ -84,12 +49,14 @@ services:
         BUILD_VERSION: ${BUILD_VERSION:-dev}
         VITE_API_BASE_URL: /api
         VITE_APP_NAME: ${VITE_APP_NAME:-Monorepo UI}
-        VITE_PUBLIC_BASE_URL: ${VITE_PUBLIC_BASE_URL:-https://app.localtest.me}
+        VITE_PUBLIC_BASE_URL: ${VITE_PUBLIC_BASE_URL:-/}
     depends_on:
       backend:
         condition: service_healthy
+    ports:
+      - "80:80"
     networks:
-      - edge
+      - default
     healthcheck:
       test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.1/healthz"]
       interval: 30s
@@ -97,12 +64,5 @@ services:
       retries: 3
       start_period: 30s
 
-networks:
-  internal:
-    driver: bridge
-  edge:
-    driver: bridge
-
 volumes:
   postgres_data:
-  traefik_letsencrypt:
