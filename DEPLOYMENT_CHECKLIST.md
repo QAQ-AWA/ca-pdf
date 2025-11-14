@@ -22,24 +22,30 @@
 
 ### 端口可用性
 
-- [ ] **80 端口**: HTTP（未被占用）
-- [ ] **443 端口**: HTTPS（未被占用）
-- [ ] **8000 端口**: 后端 API（未被占用，可选）
-- [ ] **3000 端口**: 前端开发（未被占用，可选）
-- [ ] **5432 端口**: PostgreSQL（未被占用，可选）
+- [ ] **80 端口**: HTTP（必须，frontend nginx 暴露）
+- [ ] **443 端口**: HTTPS（可选，需配置证书）
+- [ ] **5432 端口**: PostgreSQL（内部，仅本地开发需检查）
+- [ ] **8000 端口**: 后端 API（仅本地开发，生产环境不暴露）
+- [ ] **3000 端口**: 前端开发（仅本地开发）
 
 检查命令：
 ```bash
-# 检查端口占用
-ss -ltn | grep -E ':(80|443|8000|3000|5432)\s'
-# 或
-lsof -i :80,443,8000,3000,5432
+# 检查关键端口占用（生产环境）
+ss -ltn | grep -E ':(80|443)\s'
+
+# 检查开发环境端口
+ss -ltn | grep -E ':(80|8000|3000|5432)\s'
+
+# 或使用 lsof
+lsof -i :80,443
 ```
 
 ### 防火墙配置
 
-- [ ] **UFW/iptables**: 已允许 80/443 端口入站
-- [ ] **云服务安全组**: 已开放 80/443 端口
+- [ ] **UFW/iptables**: 已允许 80 端口入站（必须）
+- [ ] **UFW/iptables**: 已允许 443 端口入站（可选，如配置 HTTPS）
+- [ ] **云服务安全组**: 已开放 80 端口（必须）
+- [ ] **云服务安全组**: 已开放 443 端口（可选）
 
 ```bash
 # UFW 示例
@@ -72,25 +78,20 @@ bash <(curl -fsSL https://raw.githubusercontent.com/QAQ-AWA/ca-pdf/main/scripts/
 
 ### 配置向导
 
-- [ ] **域名配置**: 
-  - 生产环境：已输入实际域名
-  - 本地测试：使用 localtest.me
-- [ ] **子域名**: 前端和后端子域名已设置
 - [ ] **管理员邮箱**: 已输入有效邮箱
-- [ ] **ACME 邮箱**（生产）: Let's Encrypt 证书邮箱已设置
 - [ ] **数据库路径**: PostgreSQL 数据目录已确认
-- [ ] **CORS 配置**: JSON 列表格式正确
+- [ ] **CORS 配置**: JSON 列表格式正确（如 `["http://localhost"]`）
+- [ ] **可选 HTTPS**: 如需 HTTPS，TLS 证书和私钥路径已提供
 
 ### Docker 构建与启动
 
-- [ ] **镜像拉取**: traefik、postgres 镜像拉取成功
+- [ ] **镜像拉取**: postgres 镜像拉取成功
 - [ ] **镜像构建**: backend、frontend 镜像构建成功
-- [ ] **容器启动**: 所有容器启动成功
+- [ ] **容器启动**: 所有容器启动成功（共 3 个服务）
 - [ ] **健康检查**: 
-  - [ ] traefik: 健康
   - [ ] db: 健康
   - [ ] backend: 健康
-  - [ ] frontend: 健康（依赖 backend）
+  - [ ] frontend: 健康（nginx + 反向代理）
 - [ ] **数据库迁移**: Alembic 迁移执行成功
 
 ---
@@ -114,7 +115,7 @@ make verify-deploy
 - `--skip-clean`: 跳过清理，仅测试现有部署
 - `--ci-mode`: CI 模式，无交互，使用默认值
 - `--timeout SECONDS`: 健康检查超时时间（默认 600 秒）
-- `--domain DOMAIN`: 指定域名（默认 localtest.me）
+- `--use-https`: 使用 HTTPS 测试（如果配置了证书）
 - `--skip-validation`: 跳过端点验证（不推荐）
 
 **常用验证场景**：
@@ -130,15 +131,15 @@ make verify-deploy-quick
 # 或
 ./scripts/verify_deploy.sh --skip-clean --timeout 120
 
-# 生产环境验证（自定义域名）
-./scripts/verify_deploy.sh --domain example.com --frontend-sub www --backend-sub api
+# HTTPS 环境验证
+./scripts/verify_deploy.sh --skip-clean --use-https
 ```
 
 **验证脚本检查项**：
-1. ✅ 所有容器健康状态（traefik, db, backend, frontend）
-2. ✅ Traefik ping 端点（http://localhost/ping）
-3. ✅ 后端健康检查（https://api.{domain}/health）
-4. ✅ 前端健康检查（https://app.{domain}/healthz）
+1. ✅ 所有容器健康状态（db, backend, frontend）共 3 个服务
+2. ✅ 前端 nginx 健康检查（http://localhost/healthz 或 https://localhost/healthz）
+3. ✅ 后端 API 健康检查（http://localhost/api/v1/health 通过 nginx 代理）
+4. ✅ 静态资源访问（http://localhost/）
 
 **退出代码**：
 - `0` - 所有检查通过

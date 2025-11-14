@@ -44,16 +44,18 @@
 
 | 端口 | 服务 | 说明 |
 |-----|------|------|
-| **80** | HTTP | 前端和后端的 HTTP 流量 |
-| **443** | HTTPS | 前端和后端的 HTTPS 流量（推荐用于生产） |
-| **5432** | PostgreSQL | 数据库访问（仅内部网络） |
-| **8000** | Backend API | 后端开发调试（可选） |
+| **80** | Frontend (Nginx) | HTTP 流量，前端静态资源和 API 反向代理 |
+| **443** | Frontend (Nginx) | HTTPS 流量（可选，需挂载证书） |
+| **5432** | PostgreSQL | 数据库访问（仅内部网络，不对外暴露） |
+| **8000** | Backend API | 后端开发调试（仅开发环境，生产环境不暴露） |
 | **3000** | Frontend Dev | 前端开发服务器（仅开发环境） |
 
 #### 防火墙配置示例（Ubuntu）
 ```bash
-# 允许 HTTP 和 HTTPS
+# 允许 HTTP（必需）
 sudo ufw allow 80/tcp
+
+# 允许 HTTPS（可选，如果配置了 HTTPS）
 sudo ufw allow 443/tcp
 
 # 仅允许特定 IP 访问数据库（如有独立 DB 服务器）

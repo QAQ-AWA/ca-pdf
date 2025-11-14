@@ -84,7 +84,6 @@ ca-pdf 让您能够快速搭建一套独立的 PDF 数字签章系统，完全�
 - **Python** 3.11+ （用于本地开发）
 - **Node.js** 16+ （用于前端开发）
 - **PostgreSQL** 12+ （生产推荐，本地开发可用SQLite）
-- 一个可解析到宿主机的**域名**（开发用 `*.localtest.me` 或 `localhost`）
 
 ### 一行命令安装（推荐）
 
@@ -96,11 +95,11 @@ bash <(curl -fsSL https://raw.githubusercontent.com/QAQ-AWA/ca-pdf/main/scripts/
 
 安装器将自动：
 
-1. 检查 Bash、Docker、Docker Compose、80/443 端口、内存与磁盘空间等运行条件。
+1. 检查 Bash、Docker、Docker Compose、80 端口、内存与磁盘空间等运行条件。
 2. 针对不同发行版自动安装 curl、git、jq、openssl、docker、docker compose 等依赖。
-3. 下载部署模板（docker-compose.yml、Traefik 配置、环境变量示例），并生成 `.env` / `.env.docker`。
-4. 生成管理员账号、数据库密码、JWT 密钥与 Fernet 主密钥，支持 localtest.me 自签或 Let's Encrypt 证书。
-5. 启动完整容器栈、自动执行数据库迁移，所有产生日志记录在 `logs/installer-YYYYMMDD.log`。
+3. 下载部署模板（docker-compose.yml、nginx 配置、环境变量示例），并生成 `.env` / `.env.docker`。
+4. 生成管理员账号、数据库密码、JWT 密钥与 Fernet 主密钥。
+5. 启动 3 个服务容器（数据库、后端、前端）、自动执行数据库迁移，所有产生日志记录在 `logs/installer-YYYYMMDD.log`。
 
 安装完成后会在 `/usr/local/bin` 注册 `capdf` 命令，可随时运行交互式菜单：
 
@@ -135,10 +134,10 @@ make verify-deploy-quick
 ```
 
 验证脚本会检查：
-- ✅ 所有容器健康状态（traefik, db, backend, frontend）
-- ✅ Traefik ping 端点响应
-- ✅ 后端 API 健康检查
-- ✅ 前端健康检查
+- ✅ 所有容器健康状态（db, backend, frontend）
+- ✅ 前端 nginx 健康检查（通过 `/healthz` 端点）
+- ✅ 后端 API 健康检查（通过前端反向代理 `/api/v1/health`）
+- ✅ 数据库连接与迁移状态
 
 详细使用指南请参阅 [DEPLOYMENT_VERIFICATION.md](./DEPLOYMENT_VERIFICATION.md)。
 
@@ -172,13 +171,12 @@ openssl rand -base64 32  # 用于 ENCRYPTED_STORAGE_MASTER_KEY
 | `ENCRYPTED_STORAGE_MASTER_KEY` | 加密私钥的主密钥（必填，需妥善保管） | 32字节Fernet密钥 |
 | `DATABASE_URL` | 异步SQLAlchemy连接串 | `postgresql+asyncpg://user:pass@localhost:5432/db` |
 | `ADMIN_EMAIL` / `ADMIN_PASSWORD` | 首次启动自动创建的管理员 | `admin@example.com` / `SecurePass123` |
-| `BACKEND_DOMAIN` | API服务域名（Traefik暴露） | `api.localtest.me` |
-| `FRONTEND_DOMAIN` | 前端域名（Traefik暴露） | `app.localtest.me` |
+| `BACKEND_CORS_ORIGINS` | 允许的CORS源（JSON数组格式） | `["http://localhost"]` |
 
 #### 3. 本地运行（Docker Compose）
 
 ```bash
-# 一键启动全栈（包含 PostgreSQL、后端、前端、Traefik）
+# 一键启动全栈（包含 PostgreSQL、后端、前端）
 capdf up
 
 # 查看服务状态
@@ -205,8 +203,8 @@ make dev-frontend
 
 #### 4. 首次访问和登录
 
-- **前端应用**：https://app.localtest.me （或 http://localhost:3000）
-- **API文档**：https://api.localtest.me/docs （或 http://localhost:8000/docs）
+- **前端应用**：http://localhost （或 http://localhost:3000 本地开发）
+- **API文档**：http://localhost/api/v1/docs （或 http://localhost:8000/docs 本地开发）
 - **默认账号**：.env 中的 `ADMIN_EMAIL` / `ADMIN_PASSWORD`
 
 首次登录后，前往"证书管理"生成根CA，然后可以开始签章流程。
@@ -285,7 +283,7 @@ make dev-frontend
 - **后端**：FastAPI、SQLAlchemy、Alembic、pyHanko
 - **前端**：React、TypeScript、Vite、React Router
 - **数据库与存储**：PostgreSQL、SQLite（测试）、Fernet 加密存储
-- **基础设施**：Docker、Traefik、Nginx、Prometheus/Grafana
+- **基础设施**：Docker、Nginx（反向代理+静态服务）、Prometheus/Grafana
 - **安全组件**：JWT、bcrypt、TLS、审计日志
 
 ---
@@ -377,12 +375,11 @@ capdf up
 
 # 初次启动会自动：
 # 1. 构建前后端镜像
-# 2. 启动 Traefik（反向代理）
-# 3. 启动 PostgreSQL（数据库）
-# 4. 启动后端 API（FastAPI）
-# 5. 启动前端应用（React）
-# 6. 运行数据库迁移（Alembic）
-# 7. 创建默认管理员账号
+# 2. 启动 PostgreSQL（数据库）
+# 3. 启动后端 API（FastAPI）
+# 4. 启动前端应用（React + Nginx 反向代理）
+# 5. 运行数据库迁移（Alembic）
+# 6. 创建默认管理员账号
 
 # 停止服务
 capdf down
@@ -400,9 +397,9 @@ capdf down --clean
 
 生产环境部署请参考 **[DEPLOYMENT.md](./DEPLOYMENT.md)** 文档，包含以下内容：
 
-- 🔒 **SSL/TLS配置**：Let's Encrypt证书自动续期
+- 🔒 **HTTPS配置**：通过 nginx 挂载TLS证书和私钥，可选自签或第三方证书
 - 🔑 **密钥管理**：主密钥离线备份和恢复
-- 📊 **高可用**：负载均衡和故障转移
+- 🌐 **反向代理**：nginx 统一暴露前端和后端 API，处理 CORS 和客户端 IP 转发
 - 📈 **监控告警**：Prometheus + Grafana集成
 - 🔄 **备份恢复**：数据库和关键数据的备份策略
 
