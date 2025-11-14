@@ -2,7 +2,7 @@
 # verify_deploy.sh - Automated deployment verification script for ca-pdf
 # This script performs a complete deployment validation cycle:
 # - Clean environment (optional)
-# - Deploy via capdf install or docker compose
+# - Deploy via docker compose
 # - Wait for all containers to be healthy
 # - Test all health endpoints
 # - Exit non-zero on any failure
@@ -53,10 +53,7 @@ SKIP_CLEAN=0
 CI_MODE=0
 SKIP_VALIDATION=0
 TIMEOUT=600  # 10 minutes default timeout for health checks
-DOMAIN="localtest.me"
-FRONTEND_SUBDOMAIN="app"
-BACKEND_SUBDOMAIN="api"
-USE_CAPDF_INSTALL=1
+USE_HTTPS=0  # Default to HTTP
 COMPOSE_FILE="docker-compose.yml"
 PROJECT_ROOT=""
 EXIT_CODE=0
@@ -66,7 +63,7 @@ show_help() {
   cat << EOF
 Usage: $0 [OPTIONS]
 
-Automated deployment verification script for ca-pdf.
+Automated deployment verification script for ca-pdf (nginx-based stack).
 
 OPTIONS:
   --force-clean         Automatically clean old data volumes and PostgreSQL data
@@ -74,10 +71,7 @@ OPTIONS:
   --ci-mode             Non-interactive mode, skip prompts, use defaults
   --skip-validation     Skip post-deployment validation (not recommended)
   --timeout SECONDS     Timeout for health checks (default: 600)
-  --domain DOMAIN       Domain to use for testing (default: localtest.me)
-  --frontend-sub SUB    Frontend subdomain (default: app)
-  --backend-sub SUB     Backend subdomain (default: api)
-  --no-capdf-install    Use docker compose directly instead of capdf install
+  --use-https           Test HTTPS endpoints (requires mounted certificates)
   --project-root PATH   Path to ca-pdf project root (default: auto-detect)
   --help                Show this help message
 
@@ -91,8 +85,8 @@ EXAMPLES:
   # Test existing deployment without cleaning
   $0 --skip-clean
 
-  # Custom domain testing
-  $0 --domain example.com --frontend-sub www --backend-sub api
+  # Test HTTPS deployment (with mounted certificates)
+  $0 --use-https
 
   # Quick test with shorter timeout
   $0 --skip-clean --timeout 120
@@ -132,20 +126,8 @@ while [[ $# -gt 0 ]]; do
       TIMEOUT="$2"
       shift 2
       ;;
-    --domain)
-      DOMAIN="$2"
-      shift 2
-      ;;
-    --frontend-sub)
-      FRONTEND_SUBDOMAIN="$2"
-      shift 2
-      ;;
-    --backend-sub)
-      BACKEND_SUBDOMAIN="$2"
-      shift 2
-      ;;
-    --no-capdf-install)
-      USE_CAPDF_INSTALL=0
+    --use-https)
+      USE_HTTPS=1
       shift
       ;;
     --project-root)
@@ -175,12 +157,18 @@ if [[ ! -d "${PROJECT_ROOT}" ]]; then
   exit 1
 fi
 
-# Construct URLs
-FRONTEND_URL="https://${FRONTEND_SUBDOMAIN}.${DOMAIN}"
-BACKEND_URL="https://${BACKEND_SUBDOMAIN}.${DOMAIN}"
+# Construct URLs based on HTTPS flag
+if (( USE_HTTPS )); then
+  PROTOCOL="https"
+  FRONTEND_URL="https://localhost"
+else
+  PROTOCOL="http"
+  FRONTEND_URL="http://localhost"
+fi
+
 FRONTEND_HEALTH_URL="${FRONTEND_URL}/healthz"
-BACKEND_HEALTH_URL="${BACKEND_URL}/health"
-TRAEFIK_PING_URL="http://localhost:80/ping"
+BACKEND_HEALTH_URL="${FRONTEND_URL}/api/v1/health"
+BACKEND_DOCS_URL="${FRONTEND_URL}/api/v1/docs"
 
 # Detect docker compose command
 detect_docker_compose() {
@@ -249,46 +237,6 @@ clean_deployment() {
   log_success "Cleanup completed"
 }
 
-# Deploy using capdf install
-deploy_with_capdf() {
-  log_step "Deploying with capdf install"
-  
-  if ! command -v capdf >/dev/null 2>&1; then
-    log_error "capdf command not found. Please run install.sh first."
-    return 2
-  fi
-  
-  # Build capdf install command with appropriate flags
-  local install_cmd="capdf install"
-  
-  if (( FORCE_CLEAN )); then
-    install_cmd="${install_cmd} --force-clean"
-  fi
-  
-  if (( SKIP_VALIDATION )); then
-    install_cmd="${install_cmd} --skip-validation"
-  fi
-  
-  log_info "Running: ${install_cmd}"
-  
-  # In CI mode, provide default answers
-  if (( CI_MODE )); then
-    export CAPDF_NONINTERACTIVE=1
-    export CAPDF_DOMAIN="${DOMAIN}"
-    export CAPDF_FRONTEND_SUBDOMAIN="${FRONTEND_SUBDOMAIN}"
-    export CAPDF_BACKEND_SUBDOMAIN="${BACKEND_SUBDOMAIN}"
-  fi
-  
-  # Run the install command
-  if eval "${install_cmd}"; then
-    log_success "Deployment completed"
-    return 0
-  else
-    log_error "Deployment failed"
-    return 2
-  fi
-}
-
 # Deploy using docker compose directly
 deploy_with_compose() {
   log_step "Deploying with docker compose"
@@ -318,9 +266,9 @@ deploy_with_compose() {
     fi
   fi
   
-  # Pull base images
+  # Pull base images (only db since frontend/backend are built)
   log_info "Pulling base images..."
-  ${COMPOSE_CMD} pull --quiet traefik db 2>/dev/null || true
+  ${COMPOSE_CMD} pull --quiet db 2>/dev/null || true
   
   # Build and start containers
   log_info "Building and starting containers..."
@@ -402,7 +350,8 @@ wait_for_all_containers() {
   
   cd "${PROJECT_ROOT}" || exit 1
   
-  local services=("traefik" "db" "backend" "frontend")
+  # Only 3 services in the simplified stack
+  local services=("db" "backend" "frontend")
   local failed=0
   
   for service in "${services[@]}"; do
@@ -417,7 +366,15 @@ wait_for_all_containers() {
     return 3
   fi
   
-  log_success "All containers are healthy"
+  # Verify exactly 3 containers are running
+  local running_count
+  running_count=$(${COMPOSE_CMD} ps -q 2>/dev/null | wc -l)
+  if [[ "${running_count}" -eq 3 ]]; then
+    log_success "All 3 containers are healthy"
+  else
+    log_warn "Expected 3 running containers, found ${running_count}"
+  fi
+  
   return 0
 }
 
@@ -441,7 +398,7 @@ test_endpoint() {
     local curl_flags="-sSL -w %{http_code} -o /dev/null --max-time 10"
     
     # For HTTPS with self-signed certs (local testing)
-    if [[ "${url}" == https://* ]] && [[ "${DOMAIN}" == "localtest.me" ]]; then
+    if [[ "${url}" == https://* ]]; then
       curl_flags="${curl_flags} -k"
     fi
     
@@ -473,18 +430,23 @@ validate_endpoints() {
   
   local failed=0
   
-  # Test Traefik ping (HTTP only, no redirect)
-  if ! test_endpoint "Traefik /ping" "${TRAEFIK_PING_URL}" "200"; then
-    failed=1
-  fi
-  
-  # Test backend health endpoint
-  if ! test_endpoint "Backend /health" "${BACKEND_HEALTH_URL}" "200"; then
+  # Test frontend root (should return HTML or 200)
+  if ! test_endpoint "Frontend /" "${FRONTEND_URL}" "200"; then
     failed=1
   fi
   
   # Test frontend health endpoint
   if ! test_endpoint "Frontend /healthz" "${FRONTEND_HEALTH_URL}" "200"; then
+    failed=1
+  fi
+  
+  # Test backend health endpoint (via nginx proxy)
+  if ! test_endpoint "Backend /api/v1/health" "${BACKEND_HEALTH_URL}" "200"; then
+    failed=1
+  fi
+  
+  # Test API docs endpoint (via nginx proxy)
+  if ! test_endpoint "API Docs /api/v1/docs" "${BACKEND_DOCS_URL}" "200"; then
     failed=1
   fi
   
@@ -509,27 +471,43 @@ show_status() {
   
   echo ""
   echo "Endpoints:"
-  echo "  Frontend:  ${FRONTEND_URL}"
-  echo "  Backend:   ${BACKEND_URL}"
-  echo "  API Docs:  ${BACKEND_URL}/docs"
-  echo "  Traefik:   ${TRAEFIK_PING_URL}"
+  echo "  Frontend:      ${FRONTEND_URL}"
+  echo "  API Health:    ${BACKEND_HEALTH_URL}"
+  echo "  API Docs:      ${BACKEND_DOCS_URL}"
   
   echo ""
   echo "Health Checks:"
-  echo "  Traefik /ping:     ${TRAEFIK_PING_URL}"
-  echo "  Backend /health:   ${BACKEND_HEALTH_URL}"
-  echo "  Frontend /healthz: ${FRONTEND_HEALTH_URL}"
+  echo "  Frontend /healthz:        ${FRONTEND_HEALTH_URL}"
+  echo "  Backend /api/v1/health:   ${BACKEND_HEALTH_URL}"
   
   echo ""
 }
 
+# Collect logs from all services
+collect_logs() {
+  log_step "Collecting service logs"
+  
+  cd "${PROJECT_ROOT}" || exit 1
+  
+  local services=("db" "backend" "frontend")
+  local log_dir="${PROJECT_ROOT}/logs"
+  
+  mkdir -p "${log_dir}"
+  
+  for service in "${services[@]}"; do
+    log_info "Collecting logs for ${service}..."
+    ${COMPOSE_CMD} logs "${service}" > "${log_dir}/${service}.log" 2>&1 || true
+  done
+  
+  log_success "Logs collected to ${log_dir}/"
+}
+
 # Main verification workflow
 main() {
-  log_step "Starting deployment verification"
+  log_step "Starting deployment verification (nginx-based stack)"
   log_info "Project root: ${PROJECT_ROOT}"
-  log_info "Domain: ${DOMAIN}"
-  log_info "Frontend: ${FRONTEND_URL}"
-  log_info "Backend: ${BACKEND_URL}"
+  log_info "Protocol: ${PROTOCOL}"
+  log_info "Frontend URL: ${FRONTEND_URL}"
   echo ""
   
   # Detect docker compose
@@ -541,23 +519,18 @@ main() {
     exit 5
   fi
   
-  # Deploy
-  if (( USE_CAPDF_INSTALL )); then
-    if ! deploy_with_capdf; then
-      log_error "Deployment with capdf failed"
-      exit 2
-    fi
-  else
-    if ! deploy_with_compose; then
-      log_error "Deployment with docker compose failed"
-      exit 2
-    fi
+  # Deploy with docker compose
+  if ! deploy_with_compose; then
+    log_error "Deployment with docker compose failed"
+    collect_logs
+    exit 2
   fi
   
   # Wait for containers to be healthy
   if ! wait_for_all_containers; then
     log_error "Container health check failed"
     show_status
+    collect_logs
     exit 3
   fi
   
@@ -565,6 +538,7 @@ main() {
   if ! validate_endpoints; then
     log_error "Endpoint validation failed"
     show_status
+    collect_logs
     exit 4
   fi
   
@@ -575,8 +549,8 @@ main() {
   echo ""
   log_info "Next steps:"
   echo "  1. Open browser: ${FRONTEND_URL}"
-  echo "  2. Check API docs: ${BACKEND_URL}/docs"
-  echo "  3. View logs: capdf logs"
+  echo "  2. Check API docs: ${BACKEND_DOCS_URL}"
+  echo "  3. View logs: docker compose logs -f"
   echo ""
   
   exit 0
