@@ -79,7 +79,6 @@ ca-pdf enables you to quickly build an independent PDF digital signature system 
 - **Python** 3.11+ (for local development)
 - **Node.js** 16+ (for frontend development)
 - **PostgreSQL** 12+ (recommended for production, SQLite available for local development)
-- A domain resolvable to the host machine (use `*.localtest.me` or `localhost` for development)
 
 ### One-Command Installation (Recommended)
 
@@ -91,11 +90,11 @@ bash <(curl -fsSL https://raw.githubusercontent.com/QAQ-AWA/ca-pdf/main/scripts/
 
 The installer will automatically:
 
-1. Check Bash version, Docker, Docker Compose, ports 80/443, memory and disk space requirements.
+1. Check Bash version, Docker, Docker Compose, port 80, memory and disk space requirements.
 2. Detect your Linux distribution and automatically install curl, git, jq, openssl, docker, docker compose, and other dependencies.
-3. Download deployment templates (docker-compose.yml, Traefik configuration, environment variable examples) and generate `.env` / `.env.docker`.
-4. Generate admin credentials, database passwords, JWT keys, and Fernet master keys, supporting localtest.me self-signed or Let's Encrypt certificates.
-5. Start the complete container stack, automatically run database migrations, with all logs saved to `logs/installer-YYYYMMDD.log`.
+3. Download deployment templates (docker-compose.yml, nginx configuration, environment variable examples) and generate `.env` / `.env.docker`.
+4. Generate admin credentials, database passwords, JWT keys, and Fernet master keys.
+5. Start 3 service containers (database, backend, frontend), automatically run database migrations, with all logs saved to `logs/installer-YYYYMMDD.log`.
 
 After installation, the `capdf` command will be registered in `/usr/local/bin`, allowing you to access the interactive menu anytime:
 
@@ -147,13 +146,12 @@ Key environment variables:
 | `ENCRYPTED_STORAGE_MASTER_KEY` | Master key for encrypting private keys (required, must be safeguarded) | 32-byte Fernet key |
 | `DATABASE_URL` | Async SQLAlchemy connection string | `postgresql+asyncpg://user:pass@localhost:5432/db` |
 | `ADMIN_EMAIL` / `ADMIN_PASSWORD` | Auto-created admin credentials on first startup | `admin@example.com` / `SecurePass123` |
-| `BACKEND_DOMAIN` | API service domain (Traefik exposed) | `api.localtest.me` |
-| `FRONTEND_DOMAIN` | Frontend domain (Traefik exposed) | `app.localtest.me` |
+| `BACKEND_CORS_ORIGINS` | Allowed CORS origins (JSON array format) | `["http://localhost"]` |
 
 #### 3. Run Locally (Docker Compose)
 
 ```bash
-# One-click startup of full stack (including PostgreSQL, backend, frontend, Traefik)
+# One-click startup of full stack (including PostgreSQL, backend, frontend)
 capdf up
 
 # Check service status
@@ -180,8 +178,8 @@ make dev-frontend
 
 #### 4. First Access and Login
 
-- **Frontend Application**: https://app.localtest.me (or http://localhost:3000)
-- **API Documentation**: https://api.localtest.me/docs (or http://localhost:8000/docs)
+- **Frontend Application**: http://localhost (or http://localhost:3000 for local dev)
+- **API Documentation**: http://localhost/api/v1/docs (or http://localhost:8000/docs for local dev)
 - **Default Credentials**: `ADMIN_EMAIL` / `ADMIN_PASSWORD` from .env
 
 After first login, go to "Certificate Management" to generate a root CA, then you can begin the signing process.
@@ -260,7 +258,7 @@ The complete technology stack version matrix is maintained only in [ARCHITECTURE
 - **Backend**: FastAPI, SQLAlchemy, Alembic, pyHanko
 - **Frontend**: React, TypeScript, Vite, React Router
 - **Database & Storage**: PostgreSQL, SQLite (testing), Fernet encrypted storage
-- **Infrastructure**: Docker, Traefik, Nginx, Prometheus/Grafana
+- **Infrastructure**: Docker, Nginx (reverse proxy + static serving), Prometheus/Grafana
 - **Security Components**: JWT, bcrypt, TLS, audit logs
 
 ---
@@ -352,12 +350,11 @@ capdf up
 
 # First startup will automatically:
 # 1. Build frontend and backend images
-# 2. Start Traefik (reverse proxy)
-# 3. Start PostgreSQL (database)
-# 4. Start backend API (FastAPI)
-# 5. Start frontend application (React)
-# 6. Run database migrations (Alembic)
-# 7. Create default admin account
+# 2. Start PostgreSQL (database)
+# 3. Start backend API (FastAPI)
+# 4. Start frontend application (React + Nginx reverse proxy)
+# 5. Run database migrations (Alembic)
+# 6. Create default admin account
 
 # Stop services
 capdf down
@@ -375,9 +372,9 @@ capdf down --clean
 
 For production environment deployment, please refer to the **[DEPLOYMENT.en.md](./DEPLOYMENT.en.md)** document, which includes:
 
-- 🔒 **SSL/TLS Configuration**: Let's Encrypt certificate auto-renewal
+- 🔒 **HTTPS Configuration**: Mount TLS certificates and private keys to nginx, supporting self-signed or third-party certificates
 - 🔑 **Key Management**: Master key offline backup and recovery
-- 📊 **High Availability**: Load balancing and failover
+- 🌐 **Reverse Proxy**: nginx unifies frontend and backend API exposure, handles CORS and client IP forwarding
 - 📈 **Monitoring & Alerting**: Prometheus + Grafana integration
 - 🔄 **Backup & Recovery**: Database and critical data backup strategies
 

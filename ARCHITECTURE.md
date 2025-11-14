@@ -17,8 +17,7 @@
 flowchart LR
     User((终端用户))
     Browser[React 单页应用]
-    Traefik[Traefik 反向代理]
-    Frontend[前端容器\n(Nginx + Vite 构建产物)]
+    Nginx[Nginx 前端容器\n(静态资源 + 反向代理)]
     FastAPI[FastAPI 应用层]
     ServiceLayer[服务层\n(CA / PDF / 加密存储)]
     DB[(PostgreSQL 数据库)]
@@ -27,9 +26,9 @@ flowchart LR
     Audit[(Audit Logs 表)]
     Monitoring[(集中日志 & 监控)]
     User --> Browser
-    Browser <--> Traefik
-    Traefik --> Frontend
-    Browser -->|HTTPS / JSON API| Traefik --> FastAPI
+    Browser <-->|HTTP/HTTPS 端口80| Nginx
+    Nginx -->|静态资源| Browser
+    Nginx -->|/api/* 反向代理| FastAPI
     FastAPI --> ServiceLayer
     ServiceLayer --> DB
     ServiceLayer --> Secrets
@@ -39,7 +38,7 @@ flowchart LR
     ServiceLayer --> Monitoring
 ```
 
-ca-pdf 平台由 React 前端、FastAPI 后端与 PostgreSQL 数据层组成，通过 Traefik 统一暴露在 HTTPS 入口下。前端以 Vite 打包输出静态资源，由独立容器（Nginx）托管；用户的业务请求通过 Traefik 路由到 FastAPI 服务。FastAPI 内部采用分层架构：api 层负责协议转换、服务层承载核心业务逻辑、crud/model 层与数据库交互，同时通过 EncryptedStorageService 管理敏感文件与密钥。CA/PDF 相关服务会与外部 TSA/OCSP 服务交互，所有重要操作均落盘到 audit_logs 便于追踪。
+ca-pdf 平台由 React 前端、FastAPI 后端与 PostgreSQL 数据层组成，采用 **3 服务架构**（db、backend、frontend）。前端以 Vite 打包输出静态资源，由 Nginx 容器托管并直接暴露在端口 80；Nginx 同时充当反向代理，将 `/api/*` 请求转发到内部的 `backend:8000` 服务。用户通过浏览器访问 `http://localhost`（或配置的域名）获取静态页面，所有 API 调用通过前端 Nginx 代理到后端。FastAPI 内部采用分层架构：api 层负责协议转换、服务层承载核心业务逻辑、crud/model 层与数据库交互，同时通过 EncryptedStorageService 管理敏感文件与密钥。CA/PDF 相关服务会与外部 TSA/OCSP 服务交互，所有重要操作均落盘到 audit_logs 便于追踪。
 
 ### 1.2 三层架构说明
 - **展示层（Presentation）**：React 单页应用承载所有用户交互逻辑，使用 React Router、Context 和自定义组件渲染控制台界面；请求通过 axios/httpClient 接入后端 JSON API，前端负责本地状态、Token 存储与可视化反馈。
@@ -353,16 +352,20 @@ DashboardShell 使用 CSS Grid 构建双列布局，窄屏下可以通过媒体�
 
 ## 10. 部署架构
 - **Docker 容器化**：`backend/Dockerfile` 与 `frontend/Dockerfile` 分别构建镜像，支持多阶段构建减少体积。
-- **Docker Compose**：`docker-compose.yml` 编排 Traefik、PostgreSQL、后端、前端服务；通过 `internal`/`edge` 网络隔离内外部流量。
-- **Traefik 反向代理**：负责证书自动签发、HTTP->HTTPS 重定向、健康检查；前端、后端路由基于域名区分。
-- **环境配置**：`.env`、`.env.docker` 管理环境变量，包含数据库连接、密钥、域名配置。
-- **卷挂载策略**：PostgreSQL 数据和 Traefik ACME 持久化到命名卷，确保容器重启数据不丢失。
+- **Docker Compose**：`docker-compose.yml` 编排 3 个服务（db、backend、frontend），使用单一 default 网络进行通信。
+- **Nginx 反向代理**：前端容器（frontend）通过 Nginx 在端口 80 提供静态资源服务，同时将 `/api/*` 请求反向代理到 `backend:8000`。
+- **端口暴露**：仅 frontend 暴露端口 `80:80`，backend 和 db 仅在内部网络可访问，提升安全性。
+- **HTTPS 支持**：可选通过卷挂载将 TLS 证书和私钥文件（cert.pem、key.pem）挂载到 frontend 容器，Nginx 配置 HTTPS 监听。
+- **客户端 IP 转发**：Nginx 配置 `X-Real-IP`、`X-Forwarded-For`、`X-Forwarded-Proto` 等头部，确保后端能正确获取客户端信息。
+- **CORS 处理**：Nginx 处理 OPTIONS 预检请求并添加 CORS 头部，后端作为 fallback。
+- **环境配置**：`.env`、`.env.docker` 管理环境变量，包含数据库连接、密钥、CORS 配置（不再需要域名配置）。
+- **卷挂载策略**：PostgreSQL 数据持久化到命名卷 `postgres_data`，确保容器重启数据不丢失。
 
 ## 11. 监控与可观测性
-- **日志聚合**：Traefik、FastAPI、应用日志可发送至集中化平台（ELK/Graylog）；日志中包含 request_id、客户端信息，方便溯源。
+- **日志聚合**：Nginx access/error 日志、FastAPI 应用日志可发送至集中化平台（ELK/Graylog）；日志中包含 request_id、客户端信息，方便溯源。
 - **性能监控**：可通过 Prometheus + Grafana 采集 Uvicorn/FastAPI 指标（请求耗时、并发数），数据库层可启用 `pg_stat_statements` 监控慢查询。
 - **错误追踪（Sentry）**：建议在 FastAPI 中集成 `sentry-sdk`（通过中间件捕获未处理异常）；前端可使用 `@sentry/react` 捕获运行时错误，二者共享 release 版本号。
-- **健康检查**：`/health` 路由返回服务状态与名称，Traefik/负载均衡器可基于此实现存活探针；还可以结合 Traefik 内置 `--ping`。
+- **健康检查**：前端提供 `/healthz` 端点（返回 "ok" 文本），后端提供 `/health` 和 `/health/db` 端点，外部负载均衡器可基于此实现存活探针。
 
 ## 12. 文件存储策略
 - **本地文件系统存储**：所有文件以加密形式存储在数据库（file_metadata + encrypted_secrets）中，避免额外文件系统依赖；若文件较大可改用对象存储驱动。

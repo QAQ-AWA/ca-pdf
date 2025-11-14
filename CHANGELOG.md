@@ -16,6 +16,51 @@
 
 ## [Unreleased]
 
+### 主要架构变更（v1.1.0 计划）
+
+#### 🏗️ Nginx-Fronted Architecture (2024-11-14)
+**重大架构重构：移除 Traefik，简化为 nginx 前置架构**
+
+**移除的组件**
+- ❌ Traefik 反向代理服务（第4个服务容器）
+- ❌ `internal` 和 `edge` 双网络架构
+- ❌ `traefik_letsencrypt` 数据卷
+- ❌ 所有 Traefik 配置文件（`config/traefik/`目录）
+- ❌ 7个 Traefik 相关环境变量（TRAEFIK_*、BACKEND_DOMAIN、FRONTEND_DOMAIN 等）
+
+**新架构特点**
+- ✅ **3服务架构**：仅 db、backend、frontend（减少 25% 服务数）
+- ✅ **单一网络**：default bridge 网络，简化网络配置
+- ✅ **前端直接暴露**：frontend 容器监听端口 80，对外直接暴露
+- ✅ **nginx 反向代理**：frontend nginx 将 `/api/*` 请求代理到 `backend:8000`
+- ✅ **可选 HTTPS**：通过卷挂载 TLS 证书到 frontend 实现 HTTPS（无需 ACME）
+- ✅ **简化配置**：无需域名配置，本地开发即可用 `http://localhost`
+
+**部署脚本优化**
+- 📉 代码量从 ~1931 行减少到 ~1553 行（减少 19.6%）
+- 🚀 移除域名配置向导、ACME 邮箱提示等复杂流程
+- 🔍 仅检查端口 80 和 5432（移除 443、8000 检查）
+- 📦 生成的 docker-compose.yml 仅含 3 个服务
+
+**测试覆盖**
+- ✅ 新增 32 项单元测试，验证 nginx 架构
+- ✅ 更新 `verify_deploy.sh`，移除域名参数
+- ✅ 所有健康检查通过（/healthz、/api/v1/health）
+
+**环境变量简化**
+- `BACKEND_CORS_ORIGINS`: 默认 `["http://localhost"]`（JSON 数组格式）
+- 移除所有 Traefik/ACME/域名相关变量
+
+**迁移指南**
+现有部署需要重新运行 `capdf install` 以迁移到新架构。详见 [CHANGES_SUMMARY.md](./CHANGES_SUMMARY.md)。
+
+**影响范围**
+- 🔴 **破坏性变更**：现有 Traefik 部署需要迁移
+- 🟢 **新部署**：开箱即用，无需额外配置
+- 📚 **文档更新**：README、ARCHITECTURE、DEPLOYMENT 等全部更新
+
+---
+
 ### 计划中
 
 #### 短期计划（下个版本）
