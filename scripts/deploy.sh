@@ -6,6 +6,7 @@ if [[ ${BASH_VERSINFO[0]} -lt 4 ]]; then
   exit 1
 fi
 
+# Color codes for output
 if [[ -t 1 ]]; then
   BOLD="\033[1m"
   GREEN="\033[32m"
@@ -22,6 +23,7 @@ else
   RESET=""
 fi
 
+# Logging functions
 log_step() {
   printf "%b==> %s%b\n" "${BOLD}${BLUE}" "$1" "${RESET}"
 }
@@ -42,6 +44,7 @@ log_success() {
   printf "%b✔%b %s\n" "${GREEN}" "${RESET}" "$1"
 }
 
+# Interactive prompt for confirmation
 prompt_confirm() {
   local prompt_msg=${1:-"确认继续吗?"}
   local default_choice=${2:-"y"}
@@ -54,6 +57,7 @@ prompt_confirm() {
   [[ "${response}" =~ ^([Yy])$ ]]
 }
 
+# Check if command exists
 require_command() {
   local cmd="$1"
   if ! command -v "${cmd}" >/dev/null 2>&1; then
@@ -62,16 +66,31 @@ require_command() {
   fi
 }
 
+# Error handler
 on_error() {
   local exit_code=$?
   local line_no=${1:-unknown}
   log_error "脚本执行失败（第 ${line_no} 行，退出码 ${exit_code}）。"
+  if (( DEPLOY_STARTED )); then
+    if (( NO_ROLLBACK )); then
+      log_warn "检测到 --no-rollback 标志，已禁用自动回滚（便于调试）。"
+      log_warn "可手动运行 'capdf down --clean' 清理资源。"
+    else
+      log_warn "正在回滚 Docker 容器..."
+      if command -v docker >/dev/null 2>&1; then
+        ${COMPOSE_CMD} -f "${COMPOSE_FILE}" down --remove-orphans >/dev/null 2>&1 || true
+        log_info "清理部分构建的镜像..."
+        docker image prune -f --filter "dangling=true" >/dev/null 2>&1 || true
+      fi
+    fi
+  fi
   log_error "请查看日志文件获取详情：${LOG_FILE:-未生成}"
-  exit ${exit_code}
+  exit 1
 }
 
 trap 'on_error "$LINENO"' ERR
 
+# Path setup
 SCRIPT_SOURCE="${BASH_SOURCE[0]}"
 while [[ -h "${SCRIPT_SOURCE}" ]]; do
   SCRIPT_DIR_TEMP="$(cd -P "$(dirname "${SCRIPT_SOURCE}")" && pwd)"
@@ -88,6 +107,7 @@ else
 fi
 SCRIPT_DIR="${PROJECT_ROOT}/scripts"
 
+# Create log and backup directories
 LOG_DIR="${PROJECT_ROOT}/logs"
 BACKUP_DIR="${PROJECT_ROOT}/backups"
 mkdir -p "${LOG_DIR}" "${BACKUP_DIR}"
@@ -95,6 +115,7 @@ LOG_FILE="${LOG_DIR}/installer-$(date +%Y%m%d).log"
 touch "${LOG_FILE}"
 exec > >(tee -a "${LOG_FILE}") 2>&1
 
+# Remote repository configuration
 CAPDF_REMOTE_REPO="${CAPDF_REMOTE_REPO:-QAQ-AWA/ca-pdf}"
 CAPDF_CHANNEL_FILE="${PROJECT_ROOT}/.capdf-channel"
 if [[ -z "${CAPDF_CHANNEL:-}" && -f "${CAPDF_CHANNEL_FILE}" ]]; then
@@ -102,71 +123,43 @@ if [[ -z "${CAPDF_CHANNEL:-}" && -f "${CAPDF_CHANNEL_FILE}" ]]; then
 fi
 CAPDF_CHANNEL="${CAPDF_CHANNEL:-main}"
 CAPDF_CHANNEL="$(printf "%s" "${CAPDF_CHANNEL}" | tr -d ' \n\r')"
-CAPDF_RAW_BASE_URL="https://raw.githubusercontent.com/${CAPDF_REMOTE_REPO}/${CAPDF_CHANNEL}"
 
+# Configuration file paths
 COMPOSE_FILE="${PROJECT_ROOT}/docker-compose.yml"
 ENV_FILE="${PROJECT_ROOT}/.env"
 ENV_DOCKER_FILE="${PROJECT_ROOT}/.env.docker"
-TRAEFIK_DIR="${PROJECT_ROOT}/config/traefik"
-TRAEFIK_CERT_DIR="${TRAEFIK_DIR}/certs"
-TRAEFIK_DYNAMIC_FILE="${TRAEFIK_DIR}/dynamic.yml"
 
+# Docker Compose command detection
 COMPOSE_CMD="docker compose"
+
+# Deployment state
 DEPLOY_STARTED=0
-MODE="production"
-DOMAIN=""
-FRONTEND_DOMAIN=""
-BACKEND_DOMAIN=""
-FRONTEND_URL=""
-BACKEND_URL=""
-DOCS_URL=""
+
+# Configuration variables
 DB_DATA_PATH=""
 POSTGRES_DB="app_db"
 POSTGRES_USER="app_user"
 POSTGRES_PASSWORD=""
 ADMIN_EMAIL=""
 ADMIN_PASSWORD=""
-ACME_EMAIL=""
 CORS_ORIGINS=""
 JWT_SECRET_KEY=""
 SECRET_KEY=""
 MASTER_KEY=""
-TRAEFIK_CA_SERVER="https://acme-v02.api.letsencrypt.org/directory"
-TRAEFIK_LOG_LEVEL="INFO"
-TRAEFIK_COMMAND=""
-BACKEND_LABELS=""
-FRONTEND_LABELS=""
-SHOULD_WRITE_COMPOSE="true"
+HTTPS_ENABLED=0
+TLS_CERT_PATH=""
+TLS_KEY_PATH=""
+
+# Command-line flags
 FORCE_CLEAN=0
 FORCE_REBUILD=0
 NO_CACHE=0
 FORCE_STOP=0
 SKIP_VALIDATION=0
 NO_ROLLBACK=0
+SHOULD_WRITE_COMPOSE="true"
 
-on_error() {
-  local exit_code=$?
-  local line_no=${1:-unknown}
-  log_error "部署失败（第 ${line_no} 行，退出码 ${exit_code}）。"
-  if (( DEPLOY_STARTED )); then
-    if (( NO_ROLLBACK )); then
-      log_warn "检测到 --no-rollback 标志，已禁用自动回滚（便于调试）。"
-      log_warn "可手动运行 'capdf down --clean' 清理资源。"
-    else
-      log_warn "正在回滚 Docker 容器..."
-      if command -v docker >/dev/null 2>&1; then
-        ${COMPOSE_CMD} -f "${COMPOSE_FILE}" down --remove-orphans >/dev/null 2>&1 || true
-        log_info "清理部分构建的镜像..."
-        docker image prune -f --filter "dangling=true" >/dev/null 2>&1 || true
-      fi
-    fi
-  fi
-  log_error "请查看日志文件获取详情：${LOG_FILE}"
-  exit 1
-}
-
-trap 'on_error "$LINENO"' ERR
-
+# Utility functions
 normalize_path() {
   local input_path="$1"
   if command -v realpath >/dev/null 2>&1; then
@@ -216,52 +209,43 @@ ensure_env_ready() {
   fi
 }
 
+get_env_var() {
+  local key="$1"
+  local default_value="${2:-}"
+  local file line value
+  for file in "${ENV_FILE}" "${ENV_DOCKER_FILE}"; do
+    if [[ -f "${file}" ]]; then
+      line=$(grep -E "^${key}=" "${file}" | tail -n1 || true)
+      if [[ -n "${line}" ]]; then
+        value="${line#*=}"
+        value="${value%%#*}"
+        value="$(printf '%s' "${value}" | sed -e 's/\\r$//' -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
+        value="${value%\"}"
+        value="${value#\"}"
+        value="${value%\'}"
+        value="${value#\'}"
+        printf '%s' "${value}"
+        return 0
+      fi
+    fi
+  done
+  if [[ -n "${default_value}" ]]; then
+    printf '%s' "${default_value}"
+    return 0
+  fi
+  return 1
+}
+
 print_runtime_summary() {
-  local frontend_url backend_url docs_url
-  frontend_url=$(get_env_var "VITE_PUBLIC_BASE_URL")
-  backend_url=$(get_env_var "VITE_API_BASE_URL")
-  if [[ -z "${frontend_url}" ]]; then
-    frontend_url=$(get_env_var "FRONTEND_URL" "https://app.localtest.me")
-  fi
-  if [[ -z "${backend_url}" ]]; then
-    backend_url=$(get_env_var "BACKEND_URL" "https://api.localtest.me")
-  fi
-  docs_url="${backend_url%/}/docs"
   printf "\n"
   log_info "访问入口："
-  printf "  %b前端%b: %s\n" "${BOLD}" "${RESET}" "${frontend_url}"
-  printf "  %b后端健康检查%b: %s/health\n" "${BOLD}" "${RESET}" "${backend_url}"
-  printf "  %bAPI 文档%b: %s\n" "${BOLD}" "${RESET}" "${docs_url}"
+  printf "  %b前端%b: http://localhost\n" "${BOLD}" "${RESET}"
+  printf "  %bAPI 端点%b: http://localhost/api\n" "${BOLD}" "${RESET}"
+  printf "  %b健康检查%b: http://localhost/api/health\n" "${BOLD}" "${RESET}"
+  printf "  %bAPI 文档%b: http://localhost/api/docs\n" "${BOLD}" "${RESET}"
 }
 
-doctor_check_port() {
-  local port="$1"
-  if command -v ss >/dev/null 2>&1; then
-    if ss -ltn "sport = :${port}" 2>/dev/null | grep -q ":${port}"; then
-      log_warn "端口 ${port} 已被占用。"
-    else
-      log_success "端口 ${port} 可用。"
-    fi
-  elif command -v lsof >/dev/null 2>&1; then
-    if lsof -i "TCP:${port}" -sTCP:LISTEN -P -n >/dev/null 2>&1; then
-      log_warn "端口 ${port} 已被占用。"
-    else
-      log_success "端口 ${port} 可用。"
-    fi
-  else
-    log_warn "无法检测端口 ${port} 是否占用（缺少 ss/lsof）。"
-  fi
-}
-
-download_from_repo() {
-  local channel="$1"
-  local remote_path="$2"
-  local target_path="$3"
-  local base="https://raw.githubusercontent.com/${CAPDF_REMOTE_REPO}/${channel}"
-  curl -fsSL --retry 3 --retry-delay 1 --retry-connrefused "${base}/${remote_path}" -o "${target_path}.tmp"
-  mv "${target_path}.tmp" "${target_path}"
-}
-
+# System checks
 check_os() {
   local uname_s
   uname_s=$(uname -s || echo "unknown")
@@ -341,6 +325,25 @@ check_port() {
       log_info "提示: 使用 --force-stop 参数可自动停止占用端口的容器"
       exit 1
     fi
+  fi
+}
+
+doctor_check_port() {
+  local port="$1"
+  if command -v ss >/dev/null 2>&1; then
+    if ss -ltn "sport = :${port}" 2>/dev/null | grep -q ":${port}"; then
+      log_warn "端口 ${port} 已被占用。"
+    else
+      log_success "端口 ${port} 可用。"
+    fi
+  elif command -v lsof >/dev/null 2>&1; then
+    if lsof -i "TCP:${port}" -sTCP:LISTEN -P -n >/dev/null 2>&1; then
+      log_warn "端口 ${port} 已被占用。"
+    else
+      log_success "端口 ${port} 可用。"
+    fi
+  else
+    log_warn "无法检测端口 ${port} 是否占用（缺少 ss/lsof）。"
   fi
 }
 
@@ -438,45 +441,9 @@ clean_old_data() {
   fi
 }
 
-prompt_domain() {
-  printf "\n"
-  read -r -p "请输入部署使用的主域名（留空则使用本地模式）: " DOMAIN || true
-  DOMAIN=${DOMAIN// /}
-  if [[ -z "${DOMAIN}" ]]; then
-    MODE="local"
-    FRONTEND_DOMAIN="app.localtest.me"
-    BACKEND_DOMAIN="api.localtest.me"
-    FRONTEND_URL="https://${FRONTEND_DOMAIN}"
-    BACKEND_URL="https://${BACKEND_DOMAIN}"
-    DOCS_URL="${BACKEND_URL}/docs"
-    log_info "已选择本地模式：使用 localtest.me 域名并生成自签名证书。"
-  else
-    MODE="production"
-    read -r -p "前端子域名（默认: app.${DOMAIN}）: " FRONTEND_DOMAIN || true
-    FRONTEND_DOMAIN=${FRONTEND_DOMAIN:-app.${DOMAIN}}
-    read -r -p "后端子域名（默认: api.${DOMAIN}）: " BACKEND_DOMAIN || true
-    BACKEND_DOMAIN=${BACKEND_DOMAIN:-api.${DOMAIN}}
-    FRONTEND_URL="https://${FRONTEND_DOMAIN}"
-    BACKEND_URL="https://${BACKEND_DOMAIN}"
-    DOCS_URL="${BACKEND_URL}/docs"
-  fi
-}
-
-prompt_email() {
-  if [[ "${MODE}" == "production" ]]; then
-    read -r -p "请输入用于申请 Let's Encrypt 证书的邮箱（可留空，默认 admin@${DOMAIN}）: " ACME_EMAIL || true
-  else
-    ACME_EMAIL=""
-  fi
-}
-
+# Interactive prompts
 prompt_admin_email() {
-  local default_email
-  if [[ "${MODE}" == "production" ]]; then
-    default_email="admin@${DOMAIN}"
-  else
-    default_email="admin@example.com"
-  fi
+  local default_email="admin@example.com"
   read -r -p "管理员邮箱（默认: ${default_email}）: " ADMIN_EMAIL || true
   ADMIN_EMAIL=${ADMIN_EMAIL:-${default_email}}
 }
@@ -500,20 +467,42 @@ sys.exit(0 if isinstance(parsed, list) else 1)' "$1"
 }
 
 prompt_cors() {
-  local default_cors
-  if [[ "${MODE}" == "production" ]]; then
-    default_cors='["'"${FRONTEND_URL}"'"]'
-  else
-    default_cors='["'"${FRONTEND_URL}"'", "http://localhost:5173", "http://127.0.0.1:5173"]'
-  fi
+  local default_cors='["http://localhost"]'
   read -r -p "BACKEND_CORS_ORIGINS（JSON 列表，默认: ${default_cors}）: " CORS_ORIGINS || true
   CORS_ORIGINS=${CORS_ORIGINS:-${default_cors}}
   if ! validate_json_list "${CORS_ORIGINS}"; then
-    log_error "BACKEND_CORS_ORIGINS 必须是合法的 JSON 列表，如 [\"https://example.com\"]。"
+    log_error "BACKEND_CORS_ORIGINS 必须是合法的 JSON 列表，如 [\"http://localhost\"]。"
     exit 1
   fi
 }
 
+prompt_https() {
+  printf "\n"
+  log_info "可选：如需启用 HTTPS，请准备好 TLS 证书和私钥文件。"
+  if prompt_confirm "是否启用 HTTPS（需要提供证书文件）？" "n"; then
+    HTTPS_ENABLED=1
+    read -r -p "TLS 证书文件路径（.crt 或 .pem）: " TLS_CERT_PATH || true
+    read -r -p "TLS 私钥文件路径（.key 或 .pem）: " TLS_KEY_PATH || true
+    
+    if [[ ! -f "${TLS_CERT_PATH}" ]]; then
+      log_error "证书文件不存在：${TLS_CERT_PATH}"
+      exit 1
+    fi
+    if [[ ! -f "${TLS_KEY_PATH}" ]]; then
+      log_error "私钥文件不存在：${TLS_KEY_PATH}"
+      exit 1
+    fi
+    
+    TLS_CERT_PATH=$(normalize_path "${TLS_CERT_PATH}")
+    TLS_KEY_PATH=$(normalize_path "${TLS_KEY_PATH}")
+    log_success "HTTPS 已启用，将挂载证书文件到 frontend 容器"
+  else
+    HTTPS_ENABLED=0
+    log_info "HTTPS 未启用，将使用 HTTP (端口 80)"
+  fi
+}
+
+# Secret generation
 generate_secret_hex() {
   openssl rand -hex 32
 }
@@ -534,46 +523,7 @@ generate_passwords() {
   MASTER_KEY=$(generate_fernet_from_hex)
 }
 
-ensure_dirs() {
-  mkdir -p "${TRAEFIK_DIR}"
-  mkdir -p "${TRAEFIK_CERT_DIR}"
-}
-
-build_traefik_assets() {
-  local command_items=(
-    "--providers.docker=true"
-    "--providers.docker.exposedbydefault=false"
-    "--providers.file.directory=/etc/traefik/dynamic"
-    "--entrypoints.web.address=:80"
-    "--entrypoints.websecure.address=:443"
-    "--log.level=${TRAEFIK_LOG_LEVEL}"
-    "--ping=true"
-    "--ping.entrypoint=web"
-  )
-  if [[ "${MODE}" == "production" ]]; then
-    local acme_email="${ACME_EMAIL}"
-    if [[ -z "${acme_email}" ]]; then
-      acme_email="admin@${DOMAIN}"
-    fi
-    command_items+=(
-      "--certificatesresolvers.le.acme.email=${acme_email}"
-      "--certificatesresolvers.le.acme.storage=/letsencrypt/acme.json"
-      "--certificatesresolvers.le.acme.httpchallenge.entrypoint=web"
-      "--certificatesresolvers.le.acme.caserver=${TRAEFIK_CA_SERVER}"
-    )
-  else
-    command_items+=(
-      "--serversTransport.insecureSkipVerify=true"
-    )
-  fi
-  printf -v TRAEFIK_COMMAND '      - %s\n' "${command_items[@]}"
-
-  # Note: Routers are now defined in dynamic.yml (file provider)
-  # Docker labels are not needed for routing as file-based config takes precedence
-  BACKEND_LABELS=""
-  FRONTEND_LABELS=""
-}
-
+# Configuration file writers
 write_env_file() {
   cat >"${ENV_FILE}" <<EOF
 APP_NAME=ca-pdf
@@ -608,215 +558,24 @@ POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
 POSTGRES_HOST_PORT=5432
 POSTGRES_DATA_PATH=${DB_DATA_PATH}
 
-TRAEFIK_HTTP_PORT=80
-TRAEFIK_HTTPS_PORT=443
-TRAEFIK_LOG_LEVEL=${TRAEFIK_LOG_LEVEL}
-BACKEND_DOMAIN=${BACKEND_DOMAIN}
-FRONTEND_DOMAIN=${FRONTEND_DOMAIN}
-TRAEFIK_ACME_EMAIL=${ACME_EMAIL}
-TRAEFIK_ACME_CA_SERVER=${TRAEFIK_CA_SERVER}
-
-VITE_API_BASE_URL=${BACKEND_URL}
-VITE_PUBLIC_BASE_URL=${FRONTEND_URL}
+VITE_API_BASE_URL=/api
+VITE_PUBLIC_BASE_URL=/
 VITE_APP_NAME=ca-pdf
-EOF
-}
 
-write_dynamic_config() {
-  if [[ "${MODE}" == "local" ]]; then
-    local cert_file="${TRAEFIK_CERT_DIR}/selfsigned.crt"
-    local key_file="${TRAEFIK_CERT_DIR}/selfsigned.key"
-    log_step "生成自签名证书"
-    openssl req -x509 -nodes -newkey rsa:2048 -days 365 \
-      -keyout "${key_file}" \
-      -out "${cert_file}" \
-      -subj "/CN=${FRONTEND_DOMAIN}" \
-      -addext "subjectAltName=DNS:${FRONTEND_DOMAIN},DNS:${BACKEND_DOMAIN}" >/dev/null 2>&1
-    log_success "已生成自签名证书：${cert_file}"
-    cat >"${TRAEFIK_DYNAMIC_FILE}" <<EOF
-http:
-  routers:
-    # Backend HTTP router (redirect to HTTPS)
-    backend-web:
-      rule: "Host(\`${BACKEND_DOMAIN}\`)"
-      entryPoints:
-        - web
-      middlewares:
-        - redirect-to-https
-      service: backend
-    
-    # Backend HTTPS router
-    backend:
-      rule: "Host(\`${BACKEND_DOMAIN}\`)"
-      entryPoints:
-        - websecure
-      service: backend
-      tls: {}
-    
-    # Frontend HTTP router (redirect to HTTPS)
-    frontend-web:
-      rule: "Host(\`${FRONTEND_DOMAIN}\`)"
-      entryPoints:
-        - web
-      middlewares:
-        - redirect-to-https
-      service: frontend
-    
-    # Frontend HTTPS router
-    frontend:
-      rule: "Host(\`${FRONTEND_DOMAIN}\`)"
-      entryPoints:
-        - websecure
-      service: frontend
-      tls: {}
-  
-  services:
-    backend:
-      loadBalancer:
-        servers:
-          - url: "http://backend:8000"
-        healthCheck:
-          path: "/health"
-          interval: "30s"
-          timeout: "10s"
-    
-    frontend:
-      loadBalancer:
-        servers:
-          - url: "http://frontend:80"
-        healthCheck:
-          path: "/healthz"
-          interval: "30s"
-          timeout: "10s"
-  
-  middlewares:
-    redirect-to-https:
-      redirectScheme:
-        scheme: https
-        permanent: true
-
-tls:
-  options:
-    default:
-      minVersion: VersionTLS12
-  certificates:
-    - certFile: /etc/traefik/dynamic/certs/selfsigned.crt
-      keyFile: /etc/traefik/dynamic/certs/selfsigned.key
+HTTPS_ENABLED=${HTTPS_ENABLED}
 EOF
-  else
-    cat >"${TRAEFIK_DYNAMIC_FILE}" <<EOF
-http:
-  routers:
-    # Backend HTTP router (redirect to HTTPS)
-    backend-web:
-      rule: "Host(\`${BACKEND_DOMAIN}\`)"
-      entryPoints:
-        - web
-      middlewares:
-        - redirect-to-https
-      service: backend
-    
-    # Backend HTTPS router
-    backend:
-      rule: "Host(\`${BACKEND_DOMAIN}\`)"
-      entryPoints:
-        - websecure
-      service: backend
-      tls:
-        certResolver: le
-    
-    # Frontend HTTP router (redirect to HTTPS)
-    frontend-web:
-      rule: "Host(\`${FRONTEND_DOMAIN}\`)"
-      entryPoints:
-        - web
-      middlewares:
-        - redirect-to-https
-      service: frontend
-    
-    # Frontend HTTPS router
-    frontend:
-      rule: "Host(\`${FRONTEND_DOMAIN}\`)"
-      entryPoints:
-        - websecure
-      service: frontend
-      tls:
-        certResolver: le
-  
-  services:
-    backend:
-      loadBalancer:
-        servers:
-          - url: "http://backend:8000"
-        healthCheck:
-          path: "/health"
-          interval: "30s"
-          timeout: "10s"
-    
-    frontend:
-      loadBalancer:
-        servers:
-          - url: "http://frontend:80"
-        healthCheck:
-          path: "/healthz"
-          interval: "30s"
-          timeout: "10s"
-  
-  middlewares:
-    redirect-to-https:
-      redirectScheme:
-        scheme: https
-        permanent: true
-
-tls:
-  options:
-    default:
-      minVersion: VersionTLS12
-EOF
-  fi
 }
 
 write_compose_file() {
-  build_traefik_assets
-  
-  # Build backend labels section conditionally
-  local backend_labels_section=""
-  if [[ -n "${BACKEND_LABELS}" ]]; then
-    backend_labels_section="    labels:
-${BACKEND_LABELS}"
-  fi
-  
-  # Build frontend labels section conditionally
-  local frontend_labels_section=""
-  if [[ -n "${FRONTEND_LABELS}" ]]; then
-    frontend_labels_section="    labels:
-${FRONTEND_LABELS}"
+  local frontend_volumes=""
+  if (( HTTPS_ENABLED )); then
+    frontend_volumes="    volumes:
+      - ${TLS_CERT_PATH}:/etc/nginx/ssl/server.crt:ro
+      - ${TLS_KEY_PATH}:/etc/nginx/ssl/server.key:ro"
   fi
   
   cat >"${COMPOSE_FILE}" <<EOF
 services:
-  traefik:
-    image: traefik:v3.1
-    command:
-${TRAEFIK_COMMAND}    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - traefik_letsencrypt:/letsencrypt
-      - ./config/traefik:/etc/traefik/dynamic:ro
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-    networks:
-      - edge
-    labels:
-      - traefik.http.middlewares.redirect-to-https.redirectscheme.scheme=https
-      - traefik.http.middlewares.redirect-to-https.redirectscheme.permanent=true
-    healthcheck:
-      test: ["CMD", "traefik", "healthcheck", "--ping"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
-      start_period: 30s
-
   db:
     image: postgres:16
     environment:
@@ -827,8 +586,6 @@ ${TRAEFIK_COMMAND}    ports:
       - "5432:5432"
     volumes:
       - "${DB_DATA_PATH}:/var/lib/postgresql/data"
-    networks:
-      - internal
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 10s
@@ -849,16 +606,12 @@ ${TRAEFIK_COMMAND}    ports:
     env_file:
       - .env
       - .env.docker
-    networks:
-      - internal
-      - edge
     healthcheck:
       test: ["CMD", "curl", "-f", "http://127.0.0.1:8000/health"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 40s
-${backend_labels_section}
 
   frontend:
     build:
@@ -869,31 +622,26 @@ ${backend_labels_section}
         BUILD_VERSION: \${BUILD_VERSION:-deploy}
         VITE_API_BASE_URL: /api
         VITE_APP_NAME: ca-pdf
-        VITE_PUBLIC_BASE_URL: ${FRONTEND_URL}
+        VITE_PUBLIC_BASE_URL: /
     depends_on:
       backend:
         condition: service_healthy
-    networks:
-      - edge
+    ports:
+      - "80:80"
+${frontend_volumes}
     healthcheck:
       test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.1/healthz"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 30s
-${frontend_labels_section}
-
-networks:
-  internal:
-    driver: bridge
-  edge:
-    driver: bridge
 
 volumes:
-  traefik_letsencrypt:
+  postgres_data:
 EOF
 }
 
+# Docker Compose operations
 wait_for_service() {
   local service="$1"
   local timeout="$2"
@@ -934,76 +682,12 @@ run_migrations() {
   log_success "数据库迁移完成"
 }
 
-validate_network_configuration() {
-  log_info "验证网络配置..."
-  
-  if [[ ! -f "${COMPOSE_FILE}" ]]; then
-    log_error "docker-compose.yml 不存在，无法验证网络配置"
-    return 1
-  fi
-  
-  local compose_output
-  if ! compose_output=$(${COMPOSE_CMD} -f "${COMPOSE_FILE}" config 2>&1); then
-    log_error "docker-compose.yml 语法验证失败"
-    log_error "${compose_output}"
-    return 1
-  fi
-  
-  log_info "检查网络定义..."
-  if ! echo "${compose_output}" | grep -q "name: .*_edge"; then
-    log_error "未找到 'edge' 网络定义"
-    return 1
-  fi
-  log_success "找到 'edge' 网络"
-  
-  if ! echo "${compose_output}" | grep -q "name: .*_internal"; then
-    log_error "未找到 'internal' 网络定义"
-    return 1
-  fi
-  log_success "找到 'internal' 网络"
-  
-  log_info "检查服务网络附件..."
-  local services_checked=0
-  local services_ok=0
-  
-  if echo "${compose_output}" | grep -A 5 "^\s*backend:" | grep -q "networks:"; then
-    services_ok=$((services_ok + 1))
-  fi
-  services_checked=$((services_checked + 1))
-  
-  if echo "${compose_output}" | grep -A 5 "^\s*frontend:" | grep -q "networks:"; then
-    services_ok=$((services_ok + 1))
-  fi
-  services_checked=$((services_checked + 1))
-  
-  if echo "${compose_output}" | grep -A 5 "^\s*db:" | grep -q "networks:"; then
-    services_ok=$((services_ok + 1))
-  fi
-  services_checked=$((services_checked + 1))
-  
-  if echo "${compose_output}" | grep -A 5 "^\s*traefik:" | grep -q "networks:"; then
-    services_ok=$((services_ok + 1))
-  fi
-  services_checked=$((services_checked + 1))
-  
-  if (( services_ok >= 3 )); then
-    log_success "服务网络配置正确（${services_ok}/${services_checked}）"
-    return 0
-  else
-    log_warn "某些服务的网络配置可能不完整（${services_ok}/${services_checked}）"
-    return 1
-  fi
-}
-
 validate_deployment() {
   log_step "验证部署状态"
   
-  local backend_url
-  backend_url=$(get_env_var "VITE_API_BASE_URL" "https://api.localtest.me")
-  
   log_info "检查服务运行状态..."
   local services_running=0
-  local expected_services=("traefik" "db" "backend" "frontend")
+  local expected_services=("db" "backend" "frontend")
   local running_services
   running_services=$(${COMPOSE_CMD} -f "${COMPOSE_FILE}" ps --services --filter "status=running" 2>/dev/null || true)
   
@@ -1022,12 +706,12 @@ validate_deployment() {
     log_success "所有服务运行正常（${services_running}/${#expected_services[@]}）"
   fi
   
-  log_info "验证后端 API..."
+  log_info "验证 API 端点..."
   if command -v curl >/dev/null 2>&1; then
-    if curl -fsSL -k --max-time 10 "${backend_url}/health" >/dev/null 2>&1; then
-      log_success "后端 API 健康检查通过: ${backend_url}/health"
+    if curl -fsSL --max-time 10 "http://localhost/api/health" >/dev/null 2>&1; then
+      log_success "API 健康检查通过: http://localhost/api/health"
     else
-      log_warn "无法访问后端 API: ${backend_url}/health"
+      log_warn "无法访问 API: http://localhost/api/health"
       log_info "这可能需要几分钟时间，请稍后使用 'capdf doctor' 检查"
     fi
   fi
@@ -1044,12 +728,13 @@ start_stack() {
   DEPLOY_STARTED=1
   
   log_step "验证生成的配置文件"
-  if ! validate_network_configuration; then
-    log_error "网络配置验证失败"
+  if ! ${COMPOSE_CMD} -f "${COMPOSE_FILE}" config >/dev/null 2>&1; then
+    log_error "docker-compose.yml 语法验证失败"
     exit 1
   fi
+  log_success "配置文件验证通过"
   
-  ${COMPOSE_CMD} -f "${COMPOSE_FILE}" pull --quiet traefik db >/dev/null 2>&1 || true
+  ${COMPOSE_CMD} -f "${COMPOSE_FILE}" pull --quiet db >/dev/null 2>&1 || true
   
   local build_args=""
   if (( NO_CACHE )) || (( FORCE_REBUILD )); then
@@ -1067,10 +752,6 @@ start_stack() {
     log_error "后端服务未在预期时间内通过健康检查，请执行 \"${COMPOSE_CMD} -f ${COMPOSE_FILE} logs backend\" 查看详情。"
     exit 1
   fi
-  run_migrations
-  if ! wait_for_service "backend" 120; then
-    log_warn "迁移后后端健康检查仍未恢复，请查看日志确认。"
-  fi
   
   if (( !SKIP_VALIDATION )); then
     validate_deployment
@@ -1084,12 +765,15 @@ print_summary() {
   printf "\n"
   log_success "部署完成！"
   printf "\n"
-  printf "%b前端地址%b: %s\n" "${BOLD}" "${RESET}" "${FRONTEND_URL}"
-  printf "%b后端健康检查%b: %s/health\n" "${BOLD}" "${RESET}" "${BACKEND_URL}"
-  printf "%bAPI 文档%b: %s\n" "${BOLD}" "${RESET}" "${DOCS_URL}"
+  printf "%b前端地址%b: http://localhost\n" "${BOLD}" "${RESET}"
+  printf "%bAPI 文档%b: http://localhost/api/docs\n" "${BOLD}" "${RESET}"
+  printf "%b健康检查%b: http://localhost/api/health\n" "${BOLD}" "${RESET}"
   printf "%b管理员账号%b: %s\n" "${BOLD}" "${RESET}" "${ADMIN_EMAIL}"
   printf "%b管理员密码%b: %s\n" "${BOLD}" "${RESET}" "${ADMIN_PASSWORD}"
   printf "\n日志文件：%s\n" "${LOG_FILE}"
+  if (( HTTPS_ENABLED )); then
+    printf "\n%b注意%b: HTTPS 已启用，请确保在 nginx.conf 中配置了 SSL 指令。\n" "${YELLOW}" "${RESET}"
+  fi
 }
 
 stop_stack() {
@@ -1103,91 +787,7 @@ stop_stack() {
   log_success "服务已停止。"
 }
 
-restart_stack() {
-  stop_stack
-  log_step "重新启动 Docker Compose 集群"
-  start_stack
-}
-
-handle_cleanup_command() {
-  log_step "清理 Docker 资源"
-  detect_docker_compose
-  if [[ ! -f "${COMPOSE_FILE}" ]]; then
-    log_warn "未找到 ${COMPOSE_FILE}，无需清理。"
-    exit 0
-  fi
-  if prompt_confirm "确定要停止并删除所有容器、网络和数据卷吗？" "n"; then
-    ${COMPOSE_CMD} -f "${COMPOSE_FILE}" down --volumes --remove-orphans
-    log_success "已清理 Docker 资源。"
-  else
-    log_info "已取消清理操作。"
-  fi
-  exit 0
-}
-
-verify_env_files() {
-  if [[ -f "${ENV_FILE}" ]]; then
-    if prompt_confirm ".env 已存在，是否覆盖？" "n"; then
-      log_info "将覆盖现有 .env 文件。"
-    else
-      log_info "保留现有 .env 文件。"
-      return 1
-    fi
-  fi
-  return 0
-}
-
-verify_env_docker_file() {
-  if [[ -f "${ENV_DOCKER_FILE}" ]]; then
-    if prompt_confirm ".env.docker 已存在，是否覆盖？" "n"; then
-      log_info "将覆盖现有 .env.docker 文件。"
-    else
-      log_info "保留现有 .env.docker 文件。"
-      return 1
-    fi
-  fi
-  return 0
-}
-
-get_env_var() {
-  local key="$1"
-  local default_value="${2:-}"
-  local file line value
-  for file in "${ENV_FILE}" "${ENV_DOCKER_FILE}"; do
-    if [[ -f "${file}" ]]; then
-      line=$(grep -E "^${key}=" "${file}" | tail -n1 || true)
-      if [[ -n "${line}" ]]; then
-        value="${line#*=}"
-        value="${value%%#*}"
-        value="$(printf '%s' "${value}" | sed -e 's/\\r$//' -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
-        value="${value%\"}"
-        value="${value#\"}"
-        value="${value%\'}"
-        value="${value#\'}"
-        printf '%s' "${value}"
-        return 0
-      fi
-    fi
-  done
-  if [[ -n "${default_value}" ]]; then
-    printf '%s' "${default_value}"
-    return 0
-  fi
-  return 1
-}
-
-prepare_compose_file() {
-  SHOULD_WRITE_COMPOSE="true"
-  if [[ -f "${COMPOSE_FILE}" ]]; then
-    if prompt_confirm "检测到现有 docker-compose.yml，是否覆盖为自动生成的模板？" "y"; then
-      log_info "将覆盖 docker-compose.yml。"
-    else
-      log_info "保留现有 docker-compose.yml。"
-      SHOULD_WRITE_COMPOSE="false"
-    fi
-  fi
-}
-
+# Command implementations
 command_install() {
   while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -1222,35 +822,51 @@ command_install() {
   check_os
   check_docker
   check_port 80 "${FORCE_STOP}"
-  check_port 443 "${FORCE_STOP}"
   check_port 5432 "${FORCE_STOP}"
-  check_port 8000 "${FORCE_STOP}"
   check_resources
 
   log_step "交互式配置"
-  prompt_domain
-  prompt_email
   prompt_admin_email
   prompt_db_path
   prompt_cors
+  prompt_https
   generate_passwords
 
   clean_old_data "${FORCE_CLEAN}"
 
-  ensure_dirs
-  prepare_compose_file
+  if [[ -f "${COMPOSE_FILE}" ]]; then
+    if prompt_confirm "检测到现有 docker-compose.yml，是否覆盖为自动生成的模板？" "y"; then
+      log_info "将覆盖 docker-compose.yml。"
+      SHOULD_WRITE_COMPOSE="true"
+    else
+      log_info "保留现有 docker-compose.yml。"
+      SHOULD_WRITE_COMPOSE="false"
+    fi
+  fi
 
-  if verify_env_files; then
+  if [[ -f "${ENV_FILE}" ]]; then
+    if prompt_confirm ".env 已存在，是否覆盖？" "n"; then
+      write_env_file
+      log_success "已生成 .env"
+    else
+      log_info "保留现有 .env 文件。"
+    fi
+  else
     write_env_file
     log_success "已生成 .env"
   fi
-  if verify_env_docker_file; then
+
+  if [[ -f "${ENV_DOCKER_FILE}" ]]; then
+    if prompt_confirm ".env.docker 已存在，是否覆盖？" "n"; then
+      write_env_docker_file
+      log_success "已生成 .env.docker"
+    else
+      log_info "保留现有 .env.docker 文件。"
+    fi
+  else
     write_env_docker_file
     log_success "已生成 .env.docker"
   fi
-
-  write_dynamic_config
-  log_success "已生成 Traefik 配置"
 
   if [[ "${SHOULD_WRITE_COMPOSE}" == "true" ]]; then
     write_compose_file
@@ -1271,7 +887,18 @@ command_up() {
 
 command_down() {
   if [[ "${1:-}" == "--clean" ]]; then
-    handle_cleanup_command
+    log_step "清理 Docker 资源"
+    detect_docker_compose
+    if [[ ! -f "${COMPOSE_FILE}" ]]; then
+      log_warn "未找到 ${COMPOSE_FILE}，无需清理。"
+      exit 0
+    fi
+    if prompt_confirm "确定要停止并删除所有容器、网络和数据卷吗？" "n"; then
+      ${COMPOSE_CMD} -f "${COMPOSE_FILE}" down --volumes --remove-orphans
+      log_success "已清理 Docker 资源。"
+    else
+      log_info "已取消清理操作。"
+    fi
   else
     stop_stack
   fi
@@ -1279,7 +906,9 @@ command_down() {
 
 command_restart() {
   ensure_env_ready
-  restart_stack
+  stop_stack
+  log_step "重新启动 Docker Compose 集群"
+  start_stack
   print_runtime_summary
 }
 
@@ -1358,9 +987,6 @@ command_backup() {
   mkdir -p "${tmp_dir}/env"
   cp -f "${ENV_FILE}" "${tmp_dir}/env/.env"
   cp -f "${ENV_DOCKER_FILE}" "${tmp_dir}/env/.env.docker"
-  if [[ -d "${PROJECT_ROOT}/config" ]]; then
-    cp -a "${PROJECT_ROOT}/config" "${tmp_dir}/config"
-  fi
   if [[ -n "${data_path}" && -d "${data_path}" ]]; then
     cp -a "${data_path}" "${tmp_dir}/postgres_data"
   fi
@@ -1405,10 +1031,6 @@ command_restore() {
   fi
   if [[ -f "${tmp_dir}/env/.env.docker" ]]; then
     cp -f "${tmp_dir}/env/.env.docker" "${ENV_DOCKER_FILE}"
-  fi
-  if [[ -d "${tmp_dir}/config" ]]; then
-    rm -rf "${PROJECT_ROOT}/config"
-    cp -a "${tmp_dir}/config" "${PROJECT_ROOT}/config"
   fi
 
   local data_path
@@ -1510,10 +1132,8 @@ command_doctor() {
   
   log_step "5. 端口检查"
   doctor_check_port 80
-  doctor_check_port 443
-  doctor_check_port 8000
-  doctor_check_port 3000
   doctor_check_port 5432
+  doctor_check_port 3000
 
   log_step "6. 配置文件检查"
   if [[ -f "${ENV_FILE}" ]]; then
@@ -1586,13 +1206,11 @@ command_doctor() {
       log_info "请执行: capdf logs db"
     fi
     
-    local backend_url
-    backend_url=$(get_env_var "VITE_API_BASE_URL" "https://api.localtest.me")
     if command -v curl >/dev/null 2>&1; then
-      if curl -fsSL -k "${backend_url}/health" >/dev/null 2>&1; then
-        log_success "后端 API 健康检查通过"
+      if curl -fsSL "http://localhost/api/health" >/dev/null 2>&1; then
+        log_success "API 健康检查通过"
       else
-        log_warn "无法访问后端 API: ${backend_url}/health"
+        log_warn "无法访问 API: http://localhost/api/health"
         log_info "请执行: capdf logs backend"
       fi
     fi
@@ -1604,6 +1222,15 @@ command_doctor() {
   log_step "======== 诊断完成 ========" 
   log_info "如有问题，请查看日志: ${LOG_FILE}"
   log_info "导出诊断信息: capdf export-logs"
+}
+
+download_from_repo() {
+  local channel="$1"
+  local remote_path="$2"
+  local target_path="$3"
+  local base="https://raw.githubusercontent.com/${CAPDF_REMOTE_REPO}/${channel}"
+  curl -fsSL --retry 3 --retry-delay 1 --retry-connrefused "${base}/${remote_path}" -o "${target_path}.tmp"
+  mv "${target_path}.tmp" "${target_path}"
 }
 
 command_self_update() {
@@ -1645,7 +1272,7 @@ command_export_logs() {
     detect_docker_compose
     log_info "导出容器日志..."
     ${COMPOSE_CMD} -f "${COMPOSE_FILE}" logs --no-color > "${tmp_dir}/logs/docker-compose.log" 2>&1 || true
-    for service in traefik db backend frontend; do
+    for service in db backend frontend; do
       ${COMPOSE_CMD} -f "${COMPOSE_FILE}" logs --no-color "${service}" > "${tmp_dir}/logs/${service}.log" 2>&1 || true
     done
     log_info "已收集容器日志"
@@ -1713,7 +1340,6 @@ command_uninstall() {
   stop_stack
   if prompt_confirm "是否删除当前配置和数据文件？" "n"; then
     rm -f "${ENV_FILE}" "${ENV_DOCKER_FILE}" "${COMPOSE_FILE}"
-    rm -rf "${TRAEFIK_DIR}"
     local data_path
     data_path=$(get_env_var "POSTGRES_DATA_PATH")
     if [[ -n "${data_path}" ]]; then
@@ -1833,7 +1459,7 @@ print_help() {
 install 命令选项：
   --force-clean       强制清理旧数据卷和 PostgreSQL 数据目录
   --no-cache          Docker 镜像构建时不使用缓存（强制重新构建）
-  --force-stop        自动停止占用端口 (80/443/5432/8000) 的 Docker 容器
+  --force-stop        自动停止占用端口 (80/5432) 的 Docker 容器
   --skip-validation   跳过部署后的验证步骤（不推荐）
   --no-rollback       部署失败时禁用自动回滚，便于调试（需手动清理）
 
@@ -1852,15 +1478,13 @@ install 命令选项：
 
 部署流程（install 命令执行步骤）：
   1. ✓ 环境预检查（操作系统、Docker、端口、资源）
-  2. ✓ 端口占用检查（80/443/5432/8000）
-  3. ✓ 交互式配置（域名、邮箱、数据库路径、CORS）
+  2. ✓ 端口占用检查（80/5432）
+  3. ✓ 交互式配置（管理员邮箱、数据库路径、CORS、可选 HTTPS）
   4. ✓ 旧数据清理提示（可选）
-  5. ✓ 生成配置文件（.env、docker-compose.yml、Traefik 配置）
-  6. ✓ 网络配置验证（检查 edge/internal 网络和服务附件）
-  7. ✓ Docker Compose 启动（支持缓存控制）
-  8. ✓ Alembic 数据库迁移验证
-  9. ✓ 服务健康检查验证
-  10. ✓ 部署失败自动回滚清理（可用 --no-rollback 禁用）
+  5. ✓ 生成配置文件（.env、.env.docker、docker-compose.yml）
+  6. ✓ Docker Compose 启动（支持缓存控制）
+  7. ✓ 服务健康检查验证
+  8. ✓ 部署失败自动回滚清理（可用 --no-rollback 禁用）
 
 更多帮助：https://github.com/QAQ-AWA/ca-pdf
 USAGE
@@ -1927,4 +1551,3 @@ main() {
 }
 
 main "$@"
-
