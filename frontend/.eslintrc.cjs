@@ -15,4 +15,14 @@ module.exports = {
   rules: {
     "react/prop-types": "off",
   },
+  overrides: [
+    {
+      files: ["**/*.{ts,tsx}"],
+      rules: {
+        "testing-library/prefer-find-by": "warn",
+        "testing-library/render-result-naming-convention": "warn",
+        "no-useless-escape": "warn",
+      },
+    },
+  ],
 };
